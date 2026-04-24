@@ -1,0 +1,6 @@
+{
+  "name": "EduFlow Manager",
+  "description": "Sistem manajemen operasional lembaga pendidikan (guru bayangan) dan les renang. Mengelola jadwal, kehadiran, pembayaran, biaya transport, dan laporan kemajuan siswa secara real-time.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
