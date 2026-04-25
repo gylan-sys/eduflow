@@ -1,32 +1,26 @@
 # Security Specification - EduFlow Manager
 
-## 1. Data Invariants
-- A **Session** must have a valid `studentId` and `teacherId`.
-- **Attendance** must be linked to a valid `sessionId`.
-- **Payment** records are strictly managed by `admin`.
-- **ProgressReports** can only be created by the `teacher` assigned to the student or an `admin`.
-- **Users** can only read their own profile, unless they are an `admin`.
-- **Parents** can only see data (Students, Sessions, Attendance, Payments, Reports) related to their children.
-- **Teachers** can only see data related to the students they teach.
+## Data Invariants
+1. A session, payment, or report cannot exist without a valid student ID.
+2. Parents can only access data related to their linked child (studentId).
+3. Teachers can manage sessions, students, and reports but not settings or all users.
+4. Admins have full access.
+5. Users cannot change their own roles.
 
-## 2. The Dirty Dozen Payloads (Target: DENIED)
-1. **ID Spoofing**: Attempt to create a student with a `parentId` that is not the current user (if teacher/parent).
-2. **Role Escalation**: Attempt to update own user profile `role` to 'admin'.
-3. **Ghost Session**: Create a session for a student/teacher that doesn't exist.
-4. **Illegal Attendance**: Record attendance for a session the teacher isn't assigned to.
-5. **PII Leak**: Parent attempting to `list` all users.
-6. **Payment Manipulation**: Teacher/Parent attempting to mark a payment as 'paid'.
-7. **Future Attendance**: Attendance dated in the future.
-8. **Resource Exhaustion**: 1MB string in `notes` field.
-9. **Shadow Delete**: Unauthorized user trying to delete a session.
-10. **Report Forgery**: Parent trying to write a progress report.
-11. **Orphaned Attendance**: Session deleted but attendance data remains accessible/writable.
-12. **Status Skipping**: Moving session status directly from 'scheduled' to 'paid' (invalid state machine).
+## Dirty Dozen Payloads
 
-## 3. Test Cases (Summary)
-- `admin` can CRUD everything.
-- `teacher` can read their own students.
-- `teacher` can write attendance for their sessions.
-- `parent` can read their children's progress.
-- `parent` CANNOT see other students' payments.
-- `parent` CANNOT update attendance.
+1. **Identity Spoofing**: Attempt to create a user profile with a different UID than current auth.
+2. **Privilege Escalation**: Attempt to update own role to 'admin'.
+3. **Ghost Student**: Attempt to create a student without a name.
+4. **Foreign Payment**: A parent attempting to view payment records of another child.
+5. **Unauthorized Report**: A parent attempting to create or edit a report.
+6. **System field poisoning**: Attempt to manually set `createdAt` instead of using server timestamp.
+7. **Cross-Tenant Access**: A teacher attempting to delete another teacher's report (if strict ownership is enforced).
+8. **Admin Lockout**: Attempt to delete all admin records if an admin collection existed (not applicable here as we check auth).
+9. **Setting Hijack**: Anonymous user attempting to change app settings.
+10. **ID Poisoning**: Attempting to use a 2MB string as a student ID.
+11. **PII Leak**: Authenticated user attempting to list all users' private details (if they are not admin).
+12. **Status Shortcutting**: Attempting to move a session from 'scheduled' to 'completed' without being the teacher.
+
+## Test Runner (Conceptual) - firestore.rules.test.ts
+(This file would use @firebase/rules-unit-testing to verify the above payloads are denied).

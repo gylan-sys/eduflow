@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { useSettings } from '../contexts/SettingsContext';
 import { AppSettings } from '../types';
 import { 
   Settings as SettingsIcon,
@@ -12,31 +11,23 @@ import {
   Save, 
   RefreshCw,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Wallet
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 
 export const Settings: React.FC = () => {
   const { profile } = useAuth();
-  const [settings, setSettings] = useState<AppSettings>({
-    appName: 'EduFlow Manager',
-    appLogoUrl: '',
-    themeColor: '#2563EB'
-  });
-  const [loading, setLoading] = useState(true);
+  const { settings: globalSettings, refreshSettings } = useSettings();
+  const [settings, setSettings] = useState<AppSettings>(globalSettings);
+  const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, 'config', 'app_settings'), (snap) => {
-      if (snap.exists()) {
-        setSettings(snap.data() as AppSettings);
-      }
-      setLoading(false);
-    });
-    return unsub;
-  }, []);
+    setSettings(globalSettings);
+  }, [globalSettings]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,11 +35,24 @@ export const Settings: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      await setDoc(doc(db, 'config', 'app_settings'), settings);
+      const token = localStorage.getItem('adiba_token');
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(settings)
+      });
+
+      if (!res.ok) throw new Error("Gagal menyimpan");
+
+      await refreshSettings();
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (error) {
       console.error("Error updating settings:", error);
+      alert("Gagal menyimpan pengaturan.");
     } finally {
       setIsSubmitting(false);
     }
@@ -71,7 +75,7 @@ export const Settings: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h2 className="text-3xl font-black text-gray-900 tracking-tighter leading-none">Pengaturan Global</h2>
-          <p className="text-gray-500 font-medium mt-3 uppercase tracking-[0.2em] text-[10px]">Kustomisasi Branding Aplikasi</p>
+          <p className="text-gray-500 font-medium mt-3 uppercase tracking-[0.2em] text-[10px]">Kustomisasi Branding Aplikasi (Firebase Cloud)</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm">
@@ -146,6 +150,32 @@ export const Settings: React.FC = () => {
                 />
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                  <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 px-1">
+                    <Wallet className="w-3 h-3" /> Tagihan Bulanan (Default)
+                  </label>
+                  <input 
+                    type="number" 
+                    value={settings.monthlyFee || 0}
+                    onChange={(e) => setSettings({...settings, monthlyFee: parseInt(e.target.value)})}
+                    className="w-full bg-gray-50 border-none px-6 py-5 rounded-[1.5rem] text-lg font-bold text-gray-900 outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-inner" 
+                  />
+                </div>
+                <div>
+                  <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 px-1">
+                    <ImageIcon className="w-3 h-3" /> URL Gambar QRIS
+                  </label>
+                  <input 
+                    type="text" 
+                    value={settings.qrisUrl || ''}
+                    onChange={(e) => setSettings({...settings, qrisUrl: e.target.value})}
+                    className="w-full bg-gray-50 border-none px-6 py-5 rounded-[1.5rem] text-xs font-semibold text-gray-600 outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-inner" 
+                    placeholder="https://link-ke-gambar-qris.png"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 px-1">
                   <Palette className="w-3 h-3" /> Tema Warna Utama
@@ -185,7 +215,7 @@ export const Settings: React.FC = () => {
                 )}
               </button>
               <p className="mt-6 text-center text-[10px] font-black text-gray-300 uppercase tracking-tighter">
-                * Perubahan akan diterapkan seketika untuk semua pengguna aplikasi.
+                * Perubahan akan disimpan secara aman di Firebase Cloud Project Anda.
               </p>
             </div>
           </form>

@@ -1,88 +1,71 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { LogIn, GraduationCap, X, Mail, Lock, User as UserIcon, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  GraduationCap, 
+  X, 
+  Mail, 
+  Lock, 
+  ArrowRight, 
+  Briefcase, 
+  Waves, 
+  Sparkles,
+  ArrowUpRight
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
-import { AppSettings, UserProfile } from '../types';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { useSettings } from '../contexts/SettingsContext';
+import { fetchApi } from '../lib/api';
 
 export const Login: React.FC = () => {
-  const { login, loginWithEmail, error } = useAuth();
-  const [mode, setMode] = useState<'google' | 'email'>('google');
+  const { loginWithEmail, login, user, error } = useAuth();
+  const { settings: appSettings } = useSettings();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [appSettings, setAppSettings] = useState<AppSettings>({
-    appName: 'EduFlow Manager',
-    appLogoUrl: '',
-    themeColor: '#2563EB'
-  });
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (user) {
+      navigate('/');
+    }
+  }, [user, navigate]);
+
   const [showBootstrap, setShowBootstrap] = useState(false);
 
   useEffect(() => {
-    // Hidden shortcut: Click the logo 5 times to show bootstrap
-    let clicks = 0;
-    const logo = document.getElementById('app-logo-container');
-    if (logo) {
-      const handler = () => {
-        clicks++;
-        if (clicks >= 5) setShowBootstrap(true);
-      };
-      logo.addEventListener('click', handler);
-      return () => logo.removeEventListener('click', handler);
-    }
-  }, []);
-
-  useEffect(() => {
-    const unsub = onSnapshot(doc(db, 'config', 'app_settings'), (snap) => {
-      if (snap.exists()) {
-        setAppSettings(snap.data() as AppSettings);
-      }
-    });
-    return unsub;
+    fetchApi('/api/announcements').then(data => {
+      setAnnouncements(data.slice(0, 3));
+    }).catch(console.error);
   }, []);
 
   const handleBootstrap = async () => {
     setIsSubmitting(true);
     try {
-      // Use the email/pass requested by user
-      const adminEmail = 'admin@eduflow.com';
-      const adminPass = '$3cr3tadmin';
+      const adminEmail = 'gkrismantara@gmail.com';
+      const adminPass = 'admin123';
       
-      let uid = '';
-      try {
-        const res = await createUserWithEmailAndPassword(auth, adminEmail, adminPass);
-        uid = res.user.uid;
-      } catch (authErr: any) {
-        if (authErr.code === 'auth/email-already-in-use' || authErr.code === 'auth/credential-already-in-use') {
-          // If already in auth, we try to sign in to get the UID. 
-          // If this fails with invalid-credential, it means the password in Auth doesn't match $3cr3tadmin.
-          const signRes = await signInWithEmailAndPassword(auth, adminEmail, adminPass);
-          uid = signRes.user.uid;
-        } else {
-          throw authErr;
-        }
-      }
+      const res = await fetch('/api/auth/bootstrap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: adminEmail, 
+          password: adminPass,
+          displayName: 'Master Admin'
+        })
+      });
 
-      const newProfile: UserProfile = {
-        uid,
-        email: adminEmail,
-        displayName: 'Master Admin',
-        role: 'admin',
-        businessLine: 'both'
-      };
-      await setDoc(doc(db, 'users', uid), newProfile);
-      alert("Master Admin siap! Silakan login dengan: " + adminEmail);
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error);
+      }
+      
+      alert(`Master Admin Siap!\n\nEmail: ${adminEmail}\nPassword: ${adminPass}\n\nSilakan login menggunakan kredensial di atas.`);
       setShowBootstrap(false);
     } catch (err: any) {
       console.error("Bootstrap error:", err);
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
-        alert("Gagal: Email sudah terdaftar dengan password berbeda di sistem Firebase Auth. Silakan gunakan email lain atau hubungi developer.");
-      } else {
-        alert("Gagal bootstrap: " + err.message);
-      }
+      alert("Gagal bootstrap: " + err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -91,153 +74,250 @@ export const Login: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    if (mode === 'email') {
+    try {
       await loginWithEmail(email, password);
+    } catch (err) {
+      // Error handled by context
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F9FAFB] p-4 font-sans">
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="max-w-md w-full bg-white rounded-[2rem] shadow-2xl p-8 md:p-10 border border-gray-100 flex flex-col items-center"
-      >
-        <div className="flex flex-col items-center mb-8">
-          <div 
-            id="app-logo-container"
-            className={cn(
-              "w-20 h-20 rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-blue-100 rotate-3 transform hover:rotate-0 transition-all duration-500 overflow-hidden cursor-pointer",
-              !appSettings.appLogoUrl && "p-4"
-            )}
-            style={!appSettings.appLogoUrl ? { backgroundColor: appSettings.themeColor } : {}}
-          >
-            {appSettings.appLogoUrl ? (
-              <img src={appSettings.appLogoUrl} alt="Logo" className="w-full h-full object-cover" />
-            ) : (
-              <GraduationCap className="w-12 h-12 text-white" />
-            )}
-          </div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tighter text-center">{appSettings.appName}</h1>
-          <p className="text-gray-500 mt-2 text-center text-sm font-medium">Sistem Manajemen Pendidikan & Les Renang</p>
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col lg:flex-row overflow-hidden font-sans">
+      {/* Left Content / Information (Landing Surface) */}
+      <div className="lg:flex-1 p-8 lg:p-20 bg-blue-600 text-white relative overflow-hidden flex flex-col justify-between">
+        {/* Background Gradients */}
+        <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-20">
+          <div className="absolute -top-24 -left-24 w-96 h-96 bg-white rounded-full blur-3xl animate-pulse" />
+          <div className="absolute top-1/2 -right-48 w-[32rem] h-[32rem] bg-indigo-400 rounded-full blur-3xl" />
         </div>
 
-        {error && (
+        <div className="relative z-10">
+          {/* Header */}
           <motion.div 
-            initial={{ opacity: 0, y: -10 }}
+            initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="w-full mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3"
+            className="flex items-center gap-4 mb-20"
+            onDoubleClick={() => setShowBootstrap(true)}
           >
-            <div className="bg-red-500 rounded-full p-1 shrink-0">
-               <X className="w-3 h-3 text-white" />
+            <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center p-3 border border-white/30 shadow-xl overflow-hidden">
+               {appSettings.appLogoUrl ? (
+                 <img src={appSettings.appLogoUrl} alt="Logo" className="w-full h-full object-contain" />
+               ) : (
+                 <GraduationCap className="w-full h-full" />
+               )}
             </div>
-            <p className="text-xs text-red-600 font-bold leading-tight">{error}</p>
+            <div>
+              <h1 className="text-3xl font-black tracking-tighter leading-none">{appSettings.appName}</h1>
+              <p className="text-blue-100/60 text-[10px] font-black uppercase tracking-widest mt-1">Sistem Terpadu Indonesia</p>
+            </div>
           </motion.div>
-        )}
 
-        <div className="w-full space-y-4">
-          {mode === 'google' ? (
-            <div className="space-y-4">
-              <button
-                onClick={() => login()}
-                className="w-full flex items-center justify-center gap-3 bg-white border-2 border-gray-100 hover:border-gray-900 text-gray-900 font-black text-sm uppercase tracking-widest py-4 px-4 rounded-2xl transition-all duration-300 shadow-sm active:scale-95 group"
-              >
-                <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                Lanjutkan dengan Google
-              </button>
-
-              <div className="flex items-center gap-4 py-2">
-                <div className="h-px bg-gray-100 flex-1"></div>
-                <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Atau</span>
-                <div className="h-px bg-gray-100 flex-1"></div>
-              </div>
-
-              <button
-                onClick={() => setMode('email')}
-                className="w-full hover:bg-opacity-90 text-white font-black text-sm uppercase tracking-widest py-4 px-4 rounded-2xl transition-all duration-300 shadow-xl active:scale-95"
-                style={{ backgroundColor: appSettings.themeColor, boxShadow: `0 20px 25px -5px ${appSettings.themeColor}33` }}
-              >
-                Gunakan Email & Password
-              </button>
-              
-              <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl">
-                <p className="text-[10px] text-blue-700 leading-relaxed text-center font-black uppercase tracking-wider">
-                  💡 Tips: Jika popup Google tidak muncul, coba buka lewat tab baru.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <motion.form 
-              initial={{ opacity: 0, x: 20 }}
+          {/* Hero Section */}
+          <div className="max-w-2xl">
+            <motion.h2 
+              initial={{ opacity: 0, x: -30 }}
               animate={{ opacity: 1, x: 0 }}
-              onSubmit={handleSubmit} 
-              className="space-y-4 w-full"
+              transition={{ delay: 0.1 }}
+              className="text-5xl lg:text-7xl font-black tracking-tight leading-[0.9] text-white"
             >
-              <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input 
-                  type="email" 
-                  required 
-                  placeholder="Email" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-gray-50 border-none focus:ring-2 focus:ring-blue-500 pl-11 pr-4 py-4 rounded-2xl text-sm font-bold placeholder:text-gray-300 outline-none transition-all"
-                />
-              </div>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input 
-                  type="password" 
-                  required 
-                  placeholder="Password" 
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-gray-50 border-none focus:ring-2 focus:ring-blue-500 pl-11 pr-4 py-4 rounded-2xl text-sm font-bold placeholder:text-gray-300 outline-none transition-all"
-                />
-              </div>
+              Masa Depan <br />
+              <span className="text-blue-300">Pendidikan Anak.</span>
+            </motion.h2>
+            <motion.p 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="text-xl text-blue-100/80 mt-8 font-medium leading-relaxed"
+            >
+              Pantau perkembangan belajar dan kegiatan les anak Anda dalam satu platform yang aman dan transparan.
+            </motion.p>
+          </div>
 
-              <button 
-                type="submit" 
-                disabled={isSubmitting}
-                className="w-full hover:opacity-90 text-white font-black text-xs uppercase tracking-widest py-4 px-4 rounded-2xl transition-all shadow-xl flex items-center justify-center gap-2 group"
-                style={{ backgroundColor: appSettings.themeColor, boxShadow: `0 20px 25px -5px ${appSettings.themeColor}33` }}
-              >
-                {isSubmitting ? "Memproses..." : "Masuk"}
-                {!isSubmitting && <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
-              </button>
-
-              <div className="flex flex-col gap-2 pt-2">
-                <button 
-                  type="button" 
-                  onClick={() => setMode('google')}
-                  className="text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-gray-900 transition-colors"
-                >
-                  Masuk dengan Google
-                </button>
+          {/* Program Quick Look */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-16">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="bg-white/10 backdrop-blur-xl p-8 rounded-[2.5rem] border border-white/10 hover:bg-white/15 transition-all group"
+            >
+              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mb-6">
+                <Briefcase className="w-6 h-6 text-blue-200" />
               </div>
-            </motion.form>
-          )}
+              <h4 className="text-xl font-black uppercase tracking-tight mb-3">Shadow Teaching</h4>
+              <p className="text-sm text-blue-100/70 leading-relaxed mb-6">Pendampingan personal untuk membantu anak beradaptasi dan berkembang di sekolah.</p>
+              <div className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-blue-300">
+                Lihat Detail <ArrowUpRight className="w-3 h-3" />
+              </div>
+            </motion.div>
+
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="bg-white/10 backdrop-blur-xl p-8 rounded-[2.5rem] border border-white/10 hover:bg-white/15 transition-all group"
+            >
+              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mb-6">
+                <Waves className="w-6 h-6 text-blue-200" />
+              </div>
+              <h4 className="text-xl font-black uppercase tracking-tight mb-3">Les Renang</h4>
+              <p className="text-sm text-blue-100/70 leading-relaxed mb-6">Program berenang yang menyenangkan dengan pelatih bersertifikat untuk hasil optimal.</p>
+              <div className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-blue-300">
+                Jadwal Kelas <ArrowUpRight className="w-3 h-3" />
+              </div>
+            </motion.div>
+          </div>
         </div>
 
-        <p className="text-[10px] text-center text-gray-300 font-bold uppercase tracking-widest mt-12 mb-0">
-          EduFlow v1.0 • 2026
-        </p>
-        {showBootstrap && (
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="w-full mt-6 pt-6 border-t border-dashed border-gray-100"
-          >
+        {/* Footer Info / Announcements */}
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6 }}
+          className="pt-12 border-t border-white/10 mt-20"
+        >
+          <div className="flex items-center justify-between mb-6">
+             <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-200 flex items-center gap-2">
+               <Sparkles className="w-3 h-3 animate-pulse" /> Pengumuman Terbaru
+             </h5>
+          </div>
+          <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
+            {announcements.map((ann) => (
+              <div key={ann.id} className="min-w-[280px] bg-white/5 backdrop-blur-sm p-6 rounded-3xl border border-white/5">
+                <p className="text-[10px] font-black text-blue-300 uppercase mb-2">Penting • {ann.type}</p>
+                <h4 className="text-sm font-black line-clamp-1 mb-2">{ann.title}</h4>
+                <p className="text-[10px] text-blue-100/60 line-clamp-2">{ann.content}</p>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Right Content / Login Section */}
+      <div className="lg:w-[500px] bg-white p-8 lg:p-20 flex flex-col justify-center relative shadow-[-40px_0_60px_-15px_rgba(0,0,0,0.1)]">
+        <div className="max-w-sm mx-auto w-full">
+          <div className="lg:hidden mb-12">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center p-2 overflow-hidden" style={{ backgroundColor: appSettings.themeColor }}>
+                 {appSettings.appLogoUrl ? (
+                   <img src={appSettings.appLogoUrl} alt="Logo" className="w-full h-full object-contain" />
+                 ) : (
+                   <GraduationCap className="text-white w-full h-full" />
+                 )}
+              </div>
+              <h1 className="text-2xl font-black tracking-tighter text-gray-900">{appSettings.appName}</h1>
+            </div>
+          </div>
+
+          <div className="mb-10">
+            <h3 className="text-4xl font-black text-gray-900 tracking-tight leading-tight">Selamat Datang Silakan Masuk</h3>
+            <p className="text-gray-500 font-medium mt-3">Akses dashboard anda untuk memantau data.</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3"
+              >
+                <div className="bg-red-500 rounded-full p-1 shrink-0">
+                   <X className="w-3 h-3 text-white" />
+                </div>
+                <p className="text-[10px] text-red-600 font-bold leading-tight uppercase tracking-widest">{error}</p>
+              </motion.div>
+            )}
+
+            <div className="space-y-4">
+              <div className="group">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 ml-1 mb-2 block">Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
+                  <input 
+                    type="email" 
+                    required 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="nama@email.com" 
+                    className="w-full bg-gray-50 border-2 border-gray-50 group-focus-within:border-blue-600 group-focus-within:bg-white pl-12 pr-4 py-4 rounded-2xl text-sm font-bold placeholder:text-gray-300 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="group">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 ml-1 mb-2 block">Sandi</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
+                  <input 
+                    type="password" 
+                    required 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••" 
+                    className="w-full bg-gray-50 border-2 border-gray-50 group-focus-within:border-blue-600 group-focus-within:bg-white pl-12 pr-4 py-4 rounded-2xl text-sm font-bold placeholder:text-gray-300 outline-none transition-all"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between px-1">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <div className="w-5 h-5 rounded-md border-2 border-gray-200 group-hover:border-blue-600 transition-colors" />
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Ingat Saya</span>
+              </label>
+              <button type="button" className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">Butuh Bantuan?</button>
+            </div>
+
             <button 
-              onClick={handleBootstrap}
-              className="w-full bg-red-50 text-red-600 font-bold py-3 rounded-2xl border border-red-100 hover:bg-red-100 transition-colors text-xs uppercase tracking-widest"
+              type="submit" 
+              disabled={isSubmitting}
+              className="w-full hover:shadow-2xl hover:shadow-blue-200 text-white font-black text-xs uppercase tracking-widest py-5 px-4 rounded-[2rem] transition-all flex items-center justify-center gap-3 group active:scale-[0.98] mb-4"
+              style={{ backgroundColor: appSettings.themeColor }}
             >
-              🚀 Bootstrap Master Admin
+              {isSubmitting ? "Memproses..." : "Masuk Ke Akun"}
+              {!isSubmitting && <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
             </button>
-          </motion.div>
-        )}
-      </motion.div>
+          </form>
+
+          {/* Social Proof / Trust */}
+          <div className="mt-12 pt-12 border-t border-gray-50 text-center">
+            <p className="text-[10px] text-gray-300 font-bold uppercase tracking-[0.2em] mb-4">Dipercaya oleh 50+ Keluarga</p>
+            <div className="flex justify-center gap-6 grayscale opacity-30">
+               {/* Placeholders for partner logos if any */}
+            </div>
+          </div>
+
+          <p className="text-[10px] text-center text-gray-300 font-bold uppercase tracking-widest mt-12 mb-0">
+             v1.0 • 2026 EduFlow Indonesia
+          </p>
+
+          {/* Hidden Bootstrap for Developer */}
+          <AnimatePresence>
+            {showBootstrap && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="w-full mt-8 p-6 bg-red-50 rounded-[2rem] border border-red-100 flex flex-col gap-4"
+              >
+                <div className="flex items-center justify-between">
+                   <h5 className="text-[10px] font-black text-red-600 uppercase tracking-widest">Developer Toolbar</h5>
+                   <button onClick={() => setShowBootstrap(false)} className="text-red-400 hover:text-red-600"><X className="w-4 h-4"/></button>
+                </div>
+                <button 
+                  onClick={handleBootstrap}
+                  disabled={isSubmitting}
+                  className="w-full bg-white text-red-600 font-black py-4 rounded-2xl border border-red-100 hover:shadow-lg transition-all text-xs uppercase tracking-widest shadow-sm"
+                >
+                  🚀 Setup Master Admin
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
     </div>
   );
 };

@@ -15,37 +15,20 @@ import {
   X,
   Waves,
   Briefcase,
-  User as UserIcon,
   ChevronRight,
   Bell,
   Megaphone
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { useSettings } from '../contexts/SettingsContext';
 import { AppSettings } from '../types';
 
 export const Layout: React.FC = () => {
   const { profile, logout, activeBusinessLine, setActiveBusinessLine } = useAuth();
+  const { settings: appSettings } = useSettings();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [appSettings, setAppSettings] = useState<AppSettings>({
-    appName: 'EduFlow Manager',
-    appLogoUrl: '',
-    themeColor: '#2563EB'
-  });
-
-  useEffect(() => {
-    const unsub = onSnapshot(doc(db, 'config', 'app_settings'), (snap) => {
-      if (snap.exists()) {
-        setAppSettings(snap.data() as AppSettings);
-      }
-    });
-    return unsub;
-  }, []);
-
-  const isAdmin = profile?.role === 'admin';
 
   const navItems = [
     { name: 'Dashboard', path: '/', icon: LayoutDashboard, roles: ['admin', 'teacher', 'parent'] },
@@ -56,6 +39,7 @@ export const Layout: React.FC = () => {
     { name: 'Progress', path: '/progress', icon: LineChart, roles: ['admin', 'teacher', 'parent'] },
     { name: 'Info', path: '/announcements', icon: Megaphone, roles: ['admin', 'teacher', 'parent'] },
     { name: 'Users', path: '/users', icon: ShieldCheck, roles: ['admin'] },
+    { name: 'Pengaturan', path: '/settings', icon: Settings, roles: ['admin'] },
   ];
 
   const filteredNavItems = navItems.filter(item => 
@@ -122,7 +106,7 @@ export const Layout: React.FC = () => {
                   </div>
                   <div>
                     <h1 className="text-lg font-black text-gray-900 tracking-tighter leading-none">{appSettings.appName}</h1>
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-1.5 opacity-60">Admin Dashboard</p>
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-1.5 opacity-60">CasaOS Mode</p>
                   </div>
                 </Link>
               </div>
@@ -154,7 +138,7 @@ export const Layout: React.FC = () => {
                   );
                 })}
 
-                {/* Business Line Toggle - Visual Improvement */}
+                {/* Business Line Toggle */}
                 {(profile?.role === 'admin' || (profile?.role === 'teacher' && profile?.businessLine === 'both')) && (
                   <div className="mt-10 mb-6">
                     <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-4 px-4">Filter Bisnis</p>
@@ -216,7 +200,7 @@ export const Layout: React.FC = () => {
                    >
                       <div className="w-10 h-10 rounded-xl overflow-hidden border-2 border-white shadow-sm bg-white shrink-0">
                         <img 
-                          src={profile?.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${profile?.displayName}`} 
+                          src={`https://api.dicebear.com/7.x/initials/svg?seed=${profile?.displayName}`} 
                           alt="Avatar" 
                           className="w-full h-full object-cover" 
                         />
@@ -251,20 +235,13 @@ export const Layout: React.FC = () => {
           <div className="flex items-center gap-6">
              <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-2xl border border-gray-100 shadow-inner">
                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-               <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Sistem Online</span>
+               <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Server Lokal Aktif</span>
              </div>
-             
-             <div className="h-4 w-px bg-gray-200" />
-             
-             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-               {activeBusinessLine === 'both' ? 'Seluruh Unit Bisnis' : activeBusinessLine === 'shadow' ? 'Unit Shadow Teacher' : 'Unit Les Renang'}
-             </p>
           </div>
 
           <div className="flex items-center gap-6">
              <button className="relative p-2.5 bg-gray-50 rounded-2xl text-gray-400 hover:text-gray-900 transition-colors group">
                 <Bell className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
              </button>
              
              <div className="h-6 w-px bg-gray-200" />
@@ -276,7 +253,7 @@ export const Layout: React.FC = () => {
                 </div>
                 <div className="w-12 h-12 rounded-2xl bg-gray-50 border border-gray-100 p-0.5 shadow-sm overflow-hidden transform hover:scale-105 transition-transform duration-300">
                    <img 
-                    src={profile?.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${profile?.displayName}`} 
+                    src={`https://api.dicebear.com/7.x/initials/svg?seed=${profile?.displayName}`} 
                     alt="User" 
                     className="w-full h-full object-cover rounded-[0.85rem]" 
                    />
@@ -293,7 +270,7 @@ export const Layout: React.FC = () => {
         </main>
       </div>
 
-      {/* Mobile Bottom Navigation - Visual Polish */}
+      {/* Mobile Bottom Navigation */}
       <div className="md:hidden fixed bottom-6 left-6 right-6 h-20 bg-white border border-gray-100 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex justify-around items-center z-50 px-4">
         {filteredNavItems.slice(0, 4).map((item) => {
           const isActive = location.pathname === item.path;
@@ -327,7 +304,7 @@ export const Layout: React.FC = () => {
         >
           <div className="w-6 h-6 rounded-lg overflow-hidden border border-gray-200">
             <img 
-              src={profile?.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${profile?.displayName}`} 
+              src={`https://api.dicebear.com/7.x/initials/svg?seed=${profile?.displayName}`} 
               alt="Profile" 
               className="w-full h-full object-cover" 
             />

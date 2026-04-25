@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, onSnapshot, doc, setDoc, deleteDoc, orderBy, serverTimestamp, getDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
-import { Announcement, UserProfile } from '../types';
+import { Announcement } from '../types';
 import { 
   Megaphone, 
   Plus, 
@@ -10,9 +8,6 @@ import {
   Info, 
   Calendar, 
   Star,
-  CheckCircle2,
-  Clock,
-  User as UserIcon,
   ChevronRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -34,14 +29,22 @@ export const Announcements: React.FC = () => {
     isActive: true
   });
 
-  useEffect(() => {
-    const q = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setAnnouncements(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Announcement[]);
+  const fetchAnnouncements = async () => {
+    try {
+      const res = await fetch('/api/announcements');
+      if (res.ok) {
+        const data = await res.json();
+        setAnnouncements(data);
+      }
+    } catch (err) {
+      console.error("Fetch announcements failed:", err);
+    } finally {
       setLoading(false);
-    });
+    }
+  };
 
-    return () => unsubscribe();
+  useEffect(() => {
+    fetchAnnouncements();
   }, []);
 
   const handleCreateAnnouncement = async (e: React.FormEvent) => {
@@ -50,17 +53,18 @@ export const Announcements: React.FC = () => {
     
     setIsSubmitting(true);
     try {
-      const id = doc(collection(db, 'announcements')).id;
-      const data: Announcement = {
-        id,
-        ...newAnnouncement,
-        authorId: profile.uid,
-        authorName: profile.displayName,
-        createdAt: serverTimestamp(),
-        isActive: true
-      };
+      const token = localStorage.getItem('eduflow_token');
+      const res = await fetch('/api/announcements', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newAnnouncement)
+      });
 
-      await setDoc(doc(db, 'announcements', id), data);
+      if (!res.ok) throw new Error("Gagal membuat pengumuman");
+
       setIsAddModalOpen(false);
       setNewAnnouncement({
         title: '',
@@ -68,6 +72,7 @@ export const Announcements: React.FC = () => {
         type: 'info',
         isActive: true
       });
+      fetchAnnouncements();
     } catch (err) {
       console.error("Error creating announcement:", err);
       alert("Gagal membuat pengumuman.");
@@ -79,7 +84,14 @@ export const Announcements: React.FC = () => {
   const handleDeleteAnnouncement = async (id: string) => {
     if (!window.confirm("Hapus pengumuman ini?")) return;
     try {
-      await deleteDoc(doc(db, 'announcements', id));
+      const token = localStorage.getItem('eduflow_token');
+      const res = await fetch(`/api/announcements/${id}`, {
+        method: 'DELETE',
+        headers: { 
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) fetchAnnouncements();
     } catch (err) {
       console.error("Error deleting announcement:", err);
     }
@@ -92,7 +104,7 @@ export const Announcements: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Informasi & Program</h2>
-          <p className="text-gray-500">Update berita terbaru, program Inklusif Adiba, dan informasi penting lainnya.</p>
+          <p className="text-gray-500">Update berita terbaru, program Inklusif Adiba, dan informasi penting lainnya (Local Mode).</p>
         </div>
         {canManage && (
           <button 
@@ -165,7 +177,7 @@ export const Announcements: React.FC = () => {
                    <div className="min-w-0">
                       <p className="text-[10px] font-black text-gray-900 uppercase truncate tracking-tight">{item.authorName}</p>
                       <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
-                        {item.createdAt?.toDate ? format(item.createdAt.toDate(), 'dd MMM yyyy') : 'Baru saja'}
+                        {item.createdAt ? format(new Date(item.createdAt), 'dd MMM yyyy') : 'Baru saja'}
                       </p>
                    </div>
                 </div>

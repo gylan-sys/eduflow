@@ -14,9 +14,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { collection, query, onSnapshot, where, getDocs, limit, orderBy } from 'firebase/firestore';
-import { db } from '../lib/firebase';
-import { Student, Session, Payment, ProgressReport, Announcement } from '../types';
+import { Student, Session, Payment, Announcement } from '../types';
 import { 
   AreaChart, 
   Area, 
@@ -27,7 +25,8 @@ import {
   ResponsiveContainer 
 } from 'recharts';
 import { formatCurrency, cn } from '../lib/utils';
-import { isSameMonth, startOfMonth, format } from 'date-fns';
+import { format } from 'date-fns';
+import { fetchApi } from '../lib/api';
 
 export const Dashboard: React.FC = () => {
   const { profile, activeBusinessLine } = useAuth();
@@ -39,66 +38,54 @@ export const Dashboard: React.FC = () => {
   });
   const [upcoming, setUpcoming] = useState<Session[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
-      // 1. Students
-      const qStudents = query(collection(db, 'students'));
-      const unsubscribeStudents = onSnapshot(qStudents, (snap) => {
-        const allStudents = snap.docs.map(doc => doc.data() as Student);
-        const filtered = allStudents.filter(s => 
-          activeBusinessLine === 'both' || s.type === activeBusinessLine || s.type === 'both'
-        );
-        setStats(prev => ({ ...prev, students: filtered.length }));
-      });
+      try {
+        // Fetch stats & data from local API
+        const [annData, sessions, studentsData, reportsData] = await Promise.all([
+          fetchApi('/api/announcements'),
+          fetchApi('/api/sessions'),
+          profile?.role === 'parent' ? fetchApi(`/api/students`) : Promise.resolve(null),
+          profile?.role === 'parent' ? fetchApi(`/api/reports`) : Promise.resolve(null)
+        ]);
+        
+        if (annData) {
+          setAnnouncements(annData.slice(0, 3));
+        }
 
-      // 2. Payments (Revenue)
-      const qPayments = query(collection(db, 'payments'), where('status', '==', 'paid'));
-      const unsubscribePayments = onSnapshot(qPayments, (snap) => {
-        const allPayments = snap.docs.map(doc => doc.data() as Payment);
-        // In a real app we'd filter by student type here too
-        const monthlyRevenue = allPayments.reduce((acc, curr) => acc + curr.amount, 0);
-        setStats(prev => ({ ...prev, revenue: monthlyRevenue }));
-      });
+        if (sessions) {
+          setUpcoming(sessions.filter((s: any) => new Date(s.date || s.startTime) >= new Date()).slice(0, 3));
+        }
 
-      // 3. Sessions
-      const qSessions = query(collection(db, 'sessions'), orderBy('startTime', 'asc'));
-      const unsubscribeSessions = onSnapshot(qSessions, (snap) => {
-        const allSessions = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Session[];
-        const filtered = allSessions.filter(s => 
-          activeBusinessLine === 'both' || s.type === activeBusinessLine
-        );
-        setUpcoming(filtered.filter(s => s.status === 'scheduled').slice(0, 4));
-      });
+        if (profile?.role === 'parent' && studentsData && reportsData) {
+          const myChild = studentsData.find((s: any) => s.id === profile.studentId);
+          
+          if (myChild) {
+            setStats({
+              students: 1, // Only 1 child
+              revenue: 0, // Parents don't see revenue, maybe show "Sessions Paid" later
+              attendance: 100, // Hardcoded for now
+              reports: reportsData.length
+            });
+          }
+        } else if (profile?.role !== 'parent') {
+           // Admin/Teacher stats can be fetched similarly
+           // For now keeping defaults or fetching basic counts
+        }
 
-      // 4. Reports
-      const qReports = query(collection(db, 'progressReports'));
-      const unsubscribeReports = onSnapshot(qReports, (snap) => {
-        setStats(prev => ({ ...prev, reports: snap.size }));
-      });
-      
-      // 5. Announcements
-      const qAnnouncements = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'), limit(3));
-      const unsubscribeAnnouncements = onSnapshot(qAnnouncements, (snap) => {
-        setAnnouncements(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Announcement[]);
-      });
-
-      setLoading(false);
-      return () => {
-        unsubscribeStudents();
-        unsubscribePayments();
-        unsubscribeSessions();
-        unsubscribeReports();
-        unsubscribeAnnouncements();
-      };
+      } catch (err) {
+        console.error("Dashboard fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    fetchData();
-  }, [activeBusinessLine]);
+    if (profile) fetchData();
+  }, [profile, activeBusinessLine]);
 
-  const isAdmin = profile?.role === 'admin';
+  const isParent = profile?.role === 'parent';
 
   return (
     <div className="space-y-8">
@@ -106,17 +93,24 @@ export const Dashboard: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-gray-100">
-             {activeBusinessLine === 'shadow' ? <Briefcase className="w-6 h-6 text-blue-600" /> : 
+             {isParent ? <BookOpen className="w-6 h-6 text-emerald-600" /> :
+              activeBusinessLine === 'shadow' ? <Briefcase className="w-6 h-6 text-blue-600" /> : 
               activeBusinessLine === 'swimming' ? <Waves className="w-6 h-6 text-emerald-600" /> : 
               <GraduationCap className="w-6 h-6 text-indigo-600" />}
           </div>
           <div>
             <h2 className="text-2xl font-bold text-gray-900 tracking-tight leading-tight">Halo, {profile?.displayName}!</h2>
             <p className="text-gray-500 font-medium space-x-1">
-              <span>Melihat data</span>
-              <span className="font-bold text-gray-900 uppercase tracking-widest text-[10px] bg-gray-100 px-2 py-0.5 rounded ml-1">
-                {activeBusinessLine === 'both' ? 'Semua Bisnis' : activeBusinessLine === 'shadow' ? 'Shadow Teacher' : 'Les Renang'}
-              </span>
+              {isParent ? (
+                <span>Memantau perkembangan anak Anda.</span>
+              ) : (
+                <>
+                  <span>Melihat data</span>
+                  <span className="font-bold text-gray-900 uppercase tracking-widest text-[10px] bg-gray-100 px-2 py-0.5 rounded ml-1">
+                    {activeBusinessLine === 'both' ? 'Semua Bisnis' : activeBusinessLine === 'shadow' ? 'Shadow Teacher' : 'Les Renang'}
+                  </span>
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -124,75 +118,128 @@ export const Dashboard: React.FC = () => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard 
-          title="Total Siswa" 
-          value={stats.students.toString()} 
-          change="+12%" 
-          icon={Users} 
-          color="blue" 
-        />
-        <StatCard 
-          title={isAdmin ? "Total Pendapatan" : "Sesi Terjadwal"} 
-          value={isAdmin ? formatCurrency(stats.revenue) : upcoming.length.toString()} 
-          change="+8%" 
-          icon={isAdmin ? TrendingUp : BookOpen} 
-          color="emerald" 
-        />
-        <StatCard 
-          title="Kehadiran Rata-rata" 
-          value={stats.attendance + "%"} 
-          change="Stabil" 
-          icon={Clock} 
-          color="orange" 
-        />
-        <StatCard 
-          title="Laporan Masuk" 
-          value={stats.reports.toString()} 
-          change="+4" 
-          icon={ArrowUpRight} 
-          color="indigo" 
-        />
+        {isParent ? (
+           <>
+            <StatCard 
+              title="Status Belajar" 
+              value="Sangat Baik" 
+              change="Bulan Ini" 
+              icon={BookOpen} 
+              color="blue" 
+            />
+            <StatCard 
+              title="Sesi Selesai" 
+              value={stats.reports.toString()} 
+              change="Sesi" 
+              icon={Clock} 
+              color="emerald" 
+            />
+            <StatCard 
+              title="Kehadiran" 
+              value="100%" 
+              change="Hadir" 
+              icon={ShieldCheck} 
+              color="orange" 
+            />
+            <StatCard 
+              title="Laporan Baru" 
+              value={stats.reports.toString()} 
+              change="Laporan" 
+              icon={ArrowUpRight} 
+              color="indigo" 
+            />
+           </>
+        ) : (
+          <>
+            <StatCard 
+              title="Total Siswa" 
+              value={stats.students.toString()} 
+              change="+0" 
+              icon={Users} 
+              color="blue" 
+            />
+            <StatCard 
+              title="Total Pendapatan" 
+              value={formatCurrency(stats.revenue)} 
+              change="+0" 
+              icon={TrendingUp} 
+              color="emerald" 
+            />
+            <StatCard 
+              title="Kehadiran Rata-rata" 
+              value={stats.attendance + "%"} 
+              change="Stabil" 
+              icon={Clock} 
+              color="orange" 
+            />
+            <StatCard 
+              title="Laporan Masuk" 
+              value={stats.reports.toString()} 
+              change="+0" 
+              icon={ArrowUpRight} 
+              color="indigo" 
+            />
+          </>
+        )}
       </div>
 
       {/* Main Charts / Content Area */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Chart Card */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-             <TrendingUp className="w-48 h-48 -mr-10 -mt-10" />
-          </div>
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="font-black text-gray-900 uppercase tracking-widest text-xs">Performa Bisnis</h3>
-            <div className="flex items-center gap-2">
-               <div className="w-3 h-3 rounded-full bg-blue-600"></div>
-               <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Pendapatan</span>
+        <div className={cn(
+          "lg:col-span-2 bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm relative overflow-hidden group",
+          isParent && "flex flex-col justify-center items-center text-center p-12"
+        )}>
+          {isParent ? (
+            <div className="space-y-6">
+              <div className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center mx-auto">
+                <TrendingUp className="w-10 h-10 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-gray-900 uppercase">Perkembangan Anak</h3>
+                <p className="text-gray-500 max-w-xs mx-auto mt-2">Semua laporan dan aktivitas anak Anda terekam dengan baik dalam sistem.</p>
+              </div>
+              <Link to="/progress" className="inline-block bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest whitespace-nowrap">Lihat Laporan Lengkap</Link>
             </div>
-          </div>
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={[
-                { name: 'Jan', revenue: stats.revenue * 0.7 },
-                { name: 'Feb', revenue: stats.revenue * 0.8 },
-                { name: 'Mar', revenue: stats.revenue * 0.9 },
-                { name: 'Apr', revenue: stats.revenue },
-              ]}>
-                <defs>
-                  <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2563EB" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#2563EB" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#9CA3AF', fontSize: 10, fontWeight: 900}} dy={10} />
-                <YAxis hide />
-                <Tooltip 
-                  contentStyle={{borderRadius: '24px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '16px'}}
-                  formatter={(value: any) => formatCurrency(value)}
-                />
-                <Area type="monotone" dataKey="revenue" stroke="#2563EB" strokeWidth={4} fillOpacity={1} fill="url(#colorRev)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          ) : (
+            <>
+              <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                <TrendingUp className="w-48 h-48 -mr-10 -mt-10" />
+              </div>
+              <div className="flex items-center justify-between mb-8">
+                <h3 className="font-black text-gray-900 uppercase tracking-widest text-xs">Performa Bisnis</h3>
+                <div className="flex items-center gap-2">
+                   <div className="w-3 h-3 rounded-full bg-blue-600"></div>
+                   <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Pendapatan</span>
+                </div>
+              </div>
+              <div className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={[
+                    { name: 'Jan', revenue: 0 },
+                    { name: 'Feb', revenue: 0 },
+                    { name: 'Mar', revenue: 0 },
+                    { name: 'Apr', revenue: 0 },
+                  ]}>
+                    <defs>
+                      <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#2563EB" stopOpacity={0.1}/>
+                        <stop offset="95%" stopColor="#2563EB" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#9CA3AF', fontSize: 10, fontWeight: 900}} dy={10} />
+                    <YAxis hide />
+                    <Tooltip 
+                      contentStyle={{borderRadius: '24px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '16px'}}
+                      formatter={(value: any) => formatCurrency(value)}
+                    />
+                    <Area type="monotone" dataKey="revenue" stroke="#2563EB" strokeWidth={4} fillOpacity={1} fill="url(#colorRev)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Sidebar Cards */}
@@ -209,7 +256,7 @@ export const Dashboard: React.FC = () => {
                 <UpcomingSession 
                   key={s.id}
                   student={s.studentId} 
-                  time={format(s.startTime?.toDate ? s.startTime.toDate() : new Date(), 'HH:mm')}
+                  time={s.startTime}
                   teacher={s.teacherId} 
                   type={s.type} 
                 />

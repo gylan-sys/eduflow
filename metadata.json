@@ -1,6 +1,6 @@
 {
-  "name": "EduFlow Manager",
-  "description": "Sistem manajemen operasional lembaga pendidikan (guru bayangan) dan les renang. Mengelola jadwal, kehadiran, pembayaran, biaya transport, dan laporan kemajuan siswa secara real-time.",
+  "name": "EduFlow - Rumah Inklusif Adiba",
+  "description": "Sistem Manajemen Pendidikan Inklusif untuk Rumah Inklusif Adiba. Kami sama, kami bisa, kami mendidik dengan hati.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

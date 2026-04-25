@@ -1,18 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { 
-  User, 
-  onAuthStateChanged, 
-  signInWithPopup, 
-  signOut, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword 
-} from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
-import { auth, db, googleProvider } from '../lib/firebase';
-import { UserProfile, UserRole, BusinessLine } from '../types';
+import { UserProfile, BusinessLine } from '../types';
 
 interface AuthContextType {
-  user: User | null;
+  user: any | null; // Simpler for local auth
   profile: UserProfile | null;
   loading: boolean;
   activeBusinessLine: BusinessLine;
@@ -20,109 +10,111 @@ interface AuthContextType {
   error: string | null;
   login: () => Promise<void>;
   loginWithEmail: (email: string, pass: string) => Promise<void>;
-  logout: () => Promise<void>;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [user, setUser] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeBusinessLine, setActiveBusinessLine] = useState<BusinessLine>('both');
-
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let unsubscribeProfile: (() => void) | undefined;
-
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      setError(null);
-      setUser(user);
+    const checkAuth = async () => {
+      const token = localStorage.getItem('adiba_token');
+      const savedUser = localStorage.getItem('adiba_user');
       
-      if (unsubscribeProfile) {
-        unsubscribeProfile();
-        unsubscribeProfile = undefined;
-      }
-
-      if (user) {
-        // Real-time profile listener
-        unsubscribeProfile = onSnapshot(doc(db, 'users', user.uid), async (profileDoc) => {
-          if (profileDoc.exists()) {
-            const data = profileDoc.data() as UserProfile;
-            setProfile(data);
-            if (data.businessLine) setActiveBusinessLine(data.businessLine);
-            setLoading(false);
-          } else {
-            // Check if it's the master admin email first
-            const isAdminEmail = user.email === 'gkrismantara@gmail.com' || user.email === 'admin@eduflow.com';
-            if (isAdminEmail) {
-              const newProfile: UserProfile = {
-                uid: user.uid,
-                email: user.email || '',
-                displayName: user.displayName || 'Admin',
-                role: 'admin',
-                businessLine: 'both',
-              };
-              await setDoc(doc(db, 'users', user.uid), newProfile);
-              // Profile state will be updated by the listener
-            } else {
-              // Sign out and show error for unknown users
-              await signOut(auth);
-              setError("Akun Anda belum terdaftar. Silakan hubungi Admin untuk dibuatkan akun.");
-              setLoading(false);
-            }
+      if (token && savedUser) {
+        try {
+          const userData = JSON.parse(savedUser);
+          setUser(userData);
+          setProfile(userData);
+          if (userData.businessLine) setActiveBusinessLine(userData.businessLine);
+          
+          // Verify token with backend
+          const res = await fetch('/api/auth/me', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          
+          if (!res.ok) {
+            throw new Error("Session invalid");
           }
-        }, (err) => {
-          console.error("Profile internal error:", err);
-          setError("Gagal memuat profil: " + err.message);
-          setLoading(false);
-        });
-      } else {
-        setProfile(null);
-        setLoading(false);
+          
+          const freshUser = await res.json();
+          setUser(freshUser);
+          setProfile(freshUser);
+          localStorage.setItem('adiba_user', JSON.stringify(freshUser));
+        } catch (err) {
+          console.error("Auth check failed:", err);
+          logout();
+        }
       }
-    });
-
-    return () => {
-      unsubscribeAuth();
-      if (unsubscribeProfile) unsubscribeProfile();
+      setLoading(false);
     };
-  }, []);
 
-  const login = async () => {
-    try {
-      setError(null);
-      await signInWithPopup(auth, googleProvider);
-    } catch (err: any) {
-      console.error("Login error:", err);
-      if (err.code === 'auth/popup-blocked') {
-        setError("Popup masuk diblokir. Harap buka aplikasi di tab baru atau izinkan popup.");
-      } else {
-        setError("Gagal masuk: " + (err.message || "Kesalahan tidak diketahui"));
-      }
-    }
-  };
+    checkAuth();
+  }, []);
 
   const loginWithEmail = async (email: string, pass: string) => {
     try {
       setError(null);
-      await signInWithEmailAndPassword(auth, email, pass);
+      setLoading(true);
+      
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: pass })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem('adiba_token', data.token);
+        localStorage.setItem('adiba_user', JSON.stringify(data.user));
+        setUser(data.user);
+        setProfile(data.user);
+        if (data.user.businessLine) setActiveBusinessLine(data.user.businessLine);
+      } else {
+        throw new Error(data.error || "Gagal masuk");
+      }
     } catch (err: any) {
-      console.error("Login email error:", err);
-      if (err.code === 'auth/user-not-found') setError("Pengguna tidak ditemukan.");
-      else if (err.code === 'auth/wrong-password') setError("Kata sandi salah.");
-      else setError("Gagal masuk: " + err.message);
+      console.error("Login error:", err);
+      let msg = err.message || "Gagal masuk. Periksa email dan password.";
+      if (msg.includes('User not found')) msg = "User tidak ditemukan";
+      if (msg.includes('Invalid password')) msg = "Password salah";
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
-  const logout = async () => {
-    await signOut(auth);
+  const login = async () => {
+    // Standard login removed, only email/pass allowed for now as requested
+    setError("Fitur login Google dinonaktifkan. Silakan gunakan email/password.");
+  };
+
+  const logout = () => {
+    localStorage.removeItem('adiba_token');
+    localStorage.removeItem('adiba_user');
+    setUser(null);
+    setProfile(null);
   };
 
   return (
     <AuthContext.Provider value={{ 
-      user, profile, loading, activeBusinessLine, setActiveBusinessLine, error, login, loginWithEmail, logout 
+      user,
+      profile, 
+      loading, 
+      activeBusinessLine, 
+      setActiveBusinessLine, 
+      error, 
+      login, 
+      loginWithEmail, 
+      logout 
     }}>
       {children}
     </AuthContext.Provider>

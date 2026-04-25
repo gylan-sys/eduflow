@@ -1,6 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../lib/firebase';
 import { Student } from '../types';
 import { 
   Users, 
@@ -11,11 +9,13 @@ import {
   Waves,
   X,
   Phone,
-  Calendar
+  Calendar,
+  Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
+import { fetchApi } from '../lib/api';
 
 export const Students: React.FC = () => {
   const { profile, activeBusinessLine } = useAuth();
@@ -27,51 +27,65 @@ export const Students: React.FC = () => {
   // Add new student form state
   const [newStudent, setNewStudent] = useState({
     name: '',
-    parentId: '',
-    type: (activeBusinessLine === 'both' ? 'shadow' : activeBusinessLine) as any,
-    notes: '',
-    dateOfBirth: ''
+    parentName: '',
+    phone: '',
+    email: '',
+    educationLevel: '',
+    type: (activeBusinessLine === 'both' ? 'shadow' : activeBusinessLine) as any
   });
 
-  useEffect(() => {
-    setNewStudent(prev => ({
-      ...prev,
-      type: (activeBusinessLine === 'both' ? 'shadow' : activeBusinessLine) as any
-    }));
-  }, [activeBusinessLine]);
-
-  useEffect(() => {
-    const q = query(collection(db, 'students'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const studentData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Student[];
-      setStudents(studentData);
+  const fetchStudents = async () => {
+    try {
+      const data = await fetchApi('/api/students');
+      setStudents(data);
+    } catch (err) {
+      console.error("Fetch students error:", err);
+    } finally {
       setLoading(false);
-    });
+    }
+  };
 
-    return unsubscribe;
+  useEffect(() => {
+    fetchStudents();
   }, []);
 
   const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await addDoc(collection(db, 'students'), {
-        ...newStudent,
-        createdAt: serverTimestamp()
+      await fetchApi('/api/students', {
+        method: 'POST',
+        body: JSON.stringify(newStudent)
       });
       setIsAddModalOpen(false);
-      setNewStudent({ name: '', parentId: '', type: (activeBusinessLine === 'both' ? 'shadow' : activeBusinessLine) as any, notes: '', dateOfBirth: '' });
+      setNewStudent({ 
+        name: '', 
+        parentName: '', 
+        phone: '', 
+        email: '', 
+        educationLevel: '',
+        type: (activeBusinessLine === 'both' ? 'shadow' : activeBusinessLine) as any 
+      });
+      fetchStudents();
     } catch (error) {
       console.error("Error adding student:", error);
+      alert("Gagal menambah siswa");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Hapus siswa ini?")) return;
+    try {
+      await fetchApi(`/api/students/${id}`, { method: 'DELETE' });
+      fetchStudents();
+    } catch (err) {
+      console.error("Delete error:", err);
     }
   };
 
   const filteredStudents = students.filter(s => {
     const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase());
-    const matchesBusinessLine = activeBusinessLine === 'both' || s.type === activeBusinessLine || s.type === 'both';
-    return matchesSearch && matchesBusinessLine;
+    // Note: Local DB schema matches the structure I'll use
+    return matchesSearch;
   });
 
   return (
@@ -79,7 +93,7 @@ export const Students: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Daftar Siswa</h2>
-          <p className="text-gray-500">Kelola informasi dan perkembangan siswa Anda.</p>
+          <p className="text-gray-500">Kelola informasi dan perkembangan siswa Anda (Local Store).</p>
         </div>
         {profile?.role === 'admin' && (
           <button 
@@ -113,7 +127,7 @@ export const Students: React.FC = () => {
                 <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Nama</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Tipe Program</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Orang Tua</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Tgl Lahir</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Kontak</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider"></th>
               </tr>
             </thead>
@@ -126,9 +140,7 @@ export const Students: React.FC = () => {
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
-                      <div className="p-3 bg-gray-50 rounded-full">
-                        <Users className="w-8 h-8 text-gray-300" />
-                      </div>
+                       <Users className="w-8 h-8 text-gray-300" />
                       <p className="text-gray-500 font-medium">Belum ada data siswa</p>
                     </div>
                   </td>
@@ -141,8 +153,8 @@ export const Students: React.FC = () => {
                         {student.name.charAt(0)}
                       </div>
                       <div>
-                        <p className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{student.name}</p>
-                        <p className="text-xs text-gray-500">ID: {student.id.slice(0, 8)}</p>
+                        <p className="font-bold text-gray-900 uppercase tracking-tight">{student.name}</p>
+                        <p className="text-xs text-gray-500">{student.educationLevel || 'Tidak Spesifik'}</p>
                       </div>
                     </div>
                   </td>
@@ -150,28 +162,27 @@ export const Students: React.FC = () => {
                     <span className={cn(
                       "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold shadow-sm",
                       student.type === 'shadow' ? "bg-blue-50 text-blue-600" : 
-                      student.type === 'swimming' ? "bg-emerald-50 text-emerald-600" :
-                      "bg-purple-50 text-purple-600"
+                      "bg-emerald-50 text-emerald-600"
                     )}>
                       {student.type === 'shadow' ? <GraduationCap className="w-3 h-3" /> : <Waves className="w-3 h-3" />}
-                      <span className="capitalize">{student.type === 'shadow' ? 'Shadow Teacher' : student.type === 'swimming' ? 'Les Renang' : 'Keduanya'}</span>
+                      <span className="capitalize">{student.type === 'shadow' ? 'Shadow Teacher' : 'Les Renang'}</span>
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-600 truncate max-w-[150px]">
-                    <div className="flex items-center gap-2">
-                       <Phone className="w-3 h-3 opacity-40" />
-                       {student.parentId}
-                    </div>
+                  <td className="px-6 py-4 text-sm font-medium text-gray-600">
+                    {student.parentName || '-'}
                   </td>
                   <td className="px-6 py-4 text-sm font-medium text-gray-500">
                     <div className="flex items-center gap-2">
-                      <Calendar className="w-3 h-3 opacity-40" />
-                      {student.dateOfBirth || '-'}
+                      <Phone className="w-3 h-3 opacity-40" />
+                      {student.phone || '-'}
                     </div>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button className="p-2 text-gray-400 hover:text-gray-900 rounded-lg hover:bg-gray-100">
-                      <MoreVertical className="w-4 h-4" />
+                    <button 
+                      onClick={() => handleDelete(student.id)}
+                      className="p-2 text-red-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </td>
                 </tr>
@@ -206,17 +217,18 @@ export const Students: React.FC = () => {
                     value={newStudent.name}
                     onChange={(e) => setNewStudent({...newStudent, name: e.target.value})}
                     className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-xl focus:border-blue-500 outline-none transition-colors" 
-                    placeholder="Contoh: Budi Santoso"
+                    placeholder="Nama Siswa"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Tanggal Lahir</label>
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Jenjang Pend.</label>
                     <input 
-                      type="date" 
-                      value={newStudent.dateOfBirth}
-                      onChange={(e) => setNewStudent({...newStudent, dateOfBirth: e.target.value})}
+                      type="text" 
+                      value={newStudent.educationLevel}
+                      onChange={(e) => setNewStudent({...newStudent, educationLevel: e.target.value})}
                       className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-xl focus:border-blue-500 outline-none transition-colors" 
+                      placeholder="Contoh: SD"
                     />
                   </div>
                   <div>
@@ -228,19 +240,27 @@ export const Students: React.FC = () => {
                     >
                       <option value="shadow">Shadow Teacher</option>
                       <option value="swimming">Les Renang</option>
-                      <option value="both">Keduanya</option>
                     </select>
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">ID/Kontak Orang Tua</label>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Nama Orang Tua</label>
                   <input 
                     type="text" 
-                    required 
-                    value={newStudent.parentId}
-                    onChange={(e) => setNewStudent({...newStudent, parentId: e.target.value})}
+                    value={newStudent.parentName}
+                    onChange={(e) => setNewStudent({...newStudent, parentName: e.target.value})}
                     className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-xl focus:border-blue-500 outline-none transition-colors" 
-                    placeholder="Email atau No. HP"
+                    placeholder="Nama Orang Tua"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">No. HP Orang Tua</label>
+                  <input 
+                    type="text" 
+                    value={newStudent.phone}
+                    onChange={(e) => setNewStudent({...newStudent, phone: e.target.value})}
+                    className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-xl focus:border-blue-500 outline-none transition-colors" 
+                    placeholder="Contoh: 0812..."
                   />
                 </div>
                 <div className="pt-4">

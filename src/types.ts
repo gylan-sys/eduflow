@@ -7,6 +7,7 @@ export interface UserProfile {
   displayName: string;
   role: UserRole;
   businessLine?: BusinessLine;
+  studentId?: string; // Linked student for parents
   phoneNumber?: string;
   assignedStudentIds?: string[]; // Max 2 students
   photoURL?: string;
@@ -54,11 +55,12 @@ export interface Payment {
   studentId: string;
   amount: number;
   type: 'tuition' | 'transport' | 'other';
-  status: 'pending' | 'paid';
+  status: 'pending' | 'paid' | 'verified';
   date: any;
   month: number;
   year: number;
   notes?: string;
+  proofUrl?: string;
 }
 
 export interface ProgressReport {
@@ -78,6 +80,8 @@ export interface AppSettings {
   appName: string;
   appLogoUrl: string;
   themeColor: string;
+  monthlyFee?: number;
+  qrisUrl?: string;
 }
 
 export interface Announcement {
