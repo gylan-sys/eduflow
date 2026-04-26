@@ -218,7 +218,7 @@ export const Announcements: React.FC = () => {
                     <input 
                       type="text" 
                       required 
-                      value={newAnnouncement.title}
+                      value={newAnnouncement.title || ''}
                       onChange={(e) => setNewAnnouncement({...newAnnouncement, title: e.target.value})}
                       className="w-full bg-gray-50 border-none px-4 py-4 rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500 transition-all" 
                       placeholder="Contoh: Pendaftaran Program Renang Baru"

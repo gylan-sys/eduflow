@@ -11,7 +11,8 @@ import {
   Briefcase,
   Waves,
   GraduationCap,
-  ShieldCheck
+  ShieldCheck,
+  Bell
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Student, Session, Payment, Announcement } from '../types';
@@ -38,17 +39,19 @@ export const Dashboard: React.FC = () => {
   });
   const [upcoming, setUpcoming] = useState<Session[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [pendingBills, setPendingBills] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         // Fetch stats & data from local API
-        const [annData, sessions, studentsData, reportsData] = await Promise.all([
+        const [annData, sessions, studentsData, reportsData, paymentsData] = await Promise.all([
           fetchApi('/api/announcements'),
           fetchApi('/api/sessions'),
           profile?.role === 'parent' ? fetchApi(`/api/students`) : Promise.resolve(null),
-          profile?.role === 'parent' ? fetchApi(`/api/reports`) : Promise.resolve(null)
+          profile?.role === 'parent' ? fetchApi(`/api/reports`) : Promise.resolve(null),
+          profile?.role === 'parent' ? fetchApi(`/api/payments`) : Promise.resolve(null)
         ]);
         
         if (annData) {
@@ -70,6 +73,10 @@ export const Dashboard: React.FC = () => {
               reports: reportsData.length
             });
           }
+
+          if (paymentsData) {
+            setPendingBills(paymentsData.filter((p: any) => p.status === 'pending'));
+          }
         } else if (profile?.role !== 'parent') {
            // Admin/Teacher stats can be fetched similarly
            // For now keeping defaults or fetching basic counts
@@ -88,33 +95,75 @@ export const Dashboard: React.FC = () => {
   const isParent = profile?.role === 'parent';
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-10">
       {/* Welcome Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-gray-100">
-             {isParent ? <BookOpen className="w-6 h-6 text-emerald-600" /> :
-              activeBusinessLine === 'shadow' ? <Briefcase className="w-6 h-6 text-blue-600" /> : 
-              activeBusinessLine === 'swimming' ? <Waves className="w-6 h-6 text-emerald-600" /> : 
-              <GraduationCap className="w-6 h-6 text-indigo-600" />}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="flex items-center gap-4 sm:gap-6">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white rounded-[1.2rem] sm:rounded-[1.5rem] flex items-center justify-center shadow-xl shadow-gray-100 border border-gray-100 shrink-0">
+             {isParent ? <BookOpen className="w-7 h-7 text-emerald-600" /> :
+              activeBusinessLine === 'shadow' ? <Briefcase className="w-7 h-7 text-blue-600" /> : 
+              activeBusinessLine === 'swimming' ? <Waves className="w-7 h-7 text-emerald-600" /> : 
+              <GraduationCap className="w-7 h-7 text-indigo-600" />}
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 tracking-tight leading-tight">Halo, {profile?.displayName}!</h2>
-            <p className="text-gray-500 font-medium space-x-1">
-              {isParent ? (
-                <span>Memantau perkembangan anak Anda.</span>
-              ) : (
-                <>
-                  <span>Melihat data</span>
-                  <span className="font-bold text-gray-900 uppercase tracking-widest text-[10px] bg-gray-100 px-2 py-0.5 rounded ml-1">
-                    {activeBusinessLine === 'both' ? 'Semua Bisnis' : activeBusinessLine === 'shadow' ? 'Shadow Teacher' : 'Les Renang'}
-                  </span>
-                </>
-              )}
-            </p>
+            <h1 className="text-2xl sm:text-3xl md:text-5xl font-black text-gray-900 tracking-tighter leading-tight italic uppercase">
+              Halo, {profile?.displayName?.split(' ')[0] || 'User'}!
+            </h1>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+              <p className="text-gray-500 font-bold text-[10px] sm:text-xs uppercase tracking-widest italic">
+                {isParent ? 'Status Tumbuh Kembang Ananda' : (
+                  <>
+                    <span>Pantau Data</span>
+                    <span className="font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg ml-2">
+                      {activeBusinessLine === 'both' ? 'Semua Bisnis' : activeBusinessLine === 'shadow' ? 'Shadow Teacher' : 'Les Renang'}
+                    </span>
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="hidden md:flex items-center gap-3">
+          <div className="w-12 h-12 bg-white rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center text-gray-400">
+            <Bell className="w-6 h-6" />
+          </div>
+          <div className="bg-gray-900 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-3 shadow-xl shadow-gray-200">
+            {format(new Date(), 'EEEE, d MMM yyyy')}
           </div>
         </div>
       </div>
+
+      {/* Bill Notification for Parents */}
+      {isParent && pendingBills.length > 0 && (
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-red-50 border border-red-100 p-5 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl shadow-red-50/50"
+        >
+          <div className="flex items-center gap-4 w-full md:w-auto">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center shadow-inner shrink-0">
+               <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-red-900 tracking-tight">Tagihan Tertunda!</h3>
+              <p className="text-red-600/80 text-[10px] sm:text-xs font-bold uppercase tracking-widest mt-0.5">Ada {pendingBills.length} tagihan yang perlu diselesaikan</p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between md:justify-end gap-6 w-full md:w-auto mt-2 md:mt-0 pt-4 md:pt-0 border-t md:border-t-0 border-red-200/50">
+            <div className="text-left md:text-right">
+               <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">Total Tagihan</p>
+               <p className="text-xl font-black text-red-700">{formatCurrency(pendingBills.reduce((s, b) => s + b.amount, 0))}</p>
+            </div>
+            <Link 
+              to="/financials" 
+              className="bg-red-600 text-white px-6 sm:px-8 py-4 rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-widest shadow-lg shadow-red-200 hover:bg-red-700 transition-all active:scale-95 text-center flex-1 sm:flex-none"
+            >
+              Bayar Sekarang
+            </Link>
+          </div>
+        </motion.div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -303,22 +352,22 @@ const StatCard = ({ title, value, change, icon: Icon, color }: any) => {
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm"
+      className="bg-white p-5 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl hover:shadow-gray-100 transition-all duration-500 group"
     >
       <div className="flex items-center justify-between mb-4">
-        <div className={cn("p-2.5 rounded-xl shadow-sm", colors[color])}>
-          <Icon className="w-5 h-5" />
+        <div className={cn("p-3 rounded-2xl shadow-sm transition-transform group-hover:scale-110 duration-500", colors[color])}>
+          <Icon className="w-6 h-6" />
         </div>
         <span className={cn(
-          "text-xs font-bold px-2 py-1 rounded-full",
-          change.startsWith('+') ? "bg-emerald-50 text-emerald-600" : "bg-gray-50 text-gray-400"
+          "text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border",
+          change.startsWith('+') ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-gray-50 text-gray-400 border-gray-100"
         )}>
           {change}
         </span>
       </div>
       <div>
-        <h4 className="text-sm font-medium text-gray-500 mb-1">{title}</h4>
-        <p className="text-2xl font-bold text-gray-900 tracking-tight">{value}</p>
+        <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{title}</h4>
+        <p className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tighter italic">{value}</p>
       </div>
     </motion.div>
   );

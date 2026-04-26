@@ -94,3 +94,13 @@ export interface Announcement {
   type: 'info' | 'program' | 'event';
   isActive: boolean;
 }
+
+export interface Program {
+  id: string;
+  name: string;
+  price: number;
+  description?: string;
+  includes?: string;
+  isActive: boolean;
+  createdAt: string;
+}

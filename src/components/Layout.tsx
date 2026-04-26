@@ -106,7 +106,6 @@ export const Layout: React.FC = () => {
                   </div>
                   <div>
                     <h1 className="text-lg font-black text-gray-900 tracking-tighter leading-none">{appSettings.appName}</h1>
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-1.5 opacity-60">CasaOS Mode</p>
                   </div>
                 </Link>
               </div>

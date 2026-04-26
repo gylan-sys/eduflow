@@ -8,6 +8,7 @@ import dotenv from 'dotenv';
 import Database from 'better-sqlite3';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import multer from 'multer';
 
 dotenv.config();
 
@@ -15,7 +16,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'rumah-inklusif-super-secret-key-123';
-const DB_PATH = path.join(__dirname, 'data.db');
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data.db');
+const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(__dirname, 'uploads');
+
+// Ensure uploads directory exists
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
 
 // Initialize SQLite Database
 const db = new Database(DB_PATH);
@@ -93,11 +100,24 @@ db.exec(`
     key TEXT PRIMARY KEY,
     value TEXT
   );
+
+  CREATE TABLE IF NOT EXISTS programs (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    price REAL NOT NULL,
+    description TEXT,
+    includes TEXT,
+    isActive INTEGER DEFAULT 1,
+    createdAt TEXT
+  );
 `);
 
 // Try to add column if it doesn't exist (handle already existing cases)
 try {
   db.exec("ALTER TABLE payments ADD COLUMN proofUrl TEXT");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE announcements ADD COLUMN targetStudentId TEXT");
 } catch (e) {}
 
 // Helper to seed settings if empty
@@ -133,6 +153,23 @@ seedDatabase();
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use('/uploads', express.static(UPLOADS_DIR));
+
+// Configure Multer
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, UPLOADS_DIR);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+});
 
 // Auth Middleware
 const authenticateToken = (req: any, res: any, next: any) => {
@@ -142,11 +179,19 @@ const authenticateToken = (req: any, res: any, next: any) => {
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
 
   jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
-    if (err) return res.status(403).json({ error: 'Forbidden' });
+    if (err) return res.status(401).json({ error: 'Unauthorized: Session expired' });
     req.user = user;
     next();
   });
 };
+
+app.post('/api/upload', authenticateToken, upload.single('file'), (req: any, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+  const fileUrl = `/uploads/${req.file.filename}`;
+  res.json({ url: fileUrl });
+});
 
 // --- API ROUTES ---
 
@@ -311,6 +356,13 @@ app.post('/api/payments', authenticateToken, (req: any, res) => {
     } else {
       db.prepare('INSERT INTO payments (id, studentId, amount, date, type, status, proofUrl) VALUES (?, ?, ?, ?, ?, ?, ?)')
         .run(nid, studentId, amount, date, type, status || 'pending', proofUrl || null);
+      
+      // Create notification for new billing
+      if (status === 'pending') {
+        const annId = 'ann_bill_' + Date.now();
+        db.prepare('INSERT INTO announcements (id, title, content, type, authorId, authorName, targetStudentId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+          .run(annId, 'Tagihan Baru', `Ada penagihan baru sebesar Rp ${Number(amount).toLocaleString('id-ID')}`, 'billing', req.user.uid, req.user.displayName || 'Sistem', studentId, new Date().toISOString());
+      }
     }
     res.json({ id: nid });
   } catch (err: any) {
@@ -375,10 +427,31 @@ app.post('/api/users', authenticateToken, async (req: any, res: any) => {
   }
 });
 
+// Auth Middleware - Optional
+const optionalAuthenticate = (req: any, res: any, next: any) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    next();
+    return;
+  }
+
+  jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+    if (!err) req.user = user;
+    next();
+  });
+};
+
 // Announcements
-app.get('/api/announcements', (req, res) => {
+app.get('/api/announcements', optionalAuthenticate, (req: any, res) => {
   try {
-    const announcements = db.prepare('SELECT * FROM announcements ORDER BY createdAt DESC').all();
+    let announcements;
+    if (req.user && req.user.role === 'parent' && req.user.studentId) {
+      announcements = db.prepare('SELECT * FROM announcements WHERE targetStudentId IS NULL OR targetStudentId = ? ORDER BY createdAt DESC').all(req.user.studentId);
+    } else {
+      announcements = db.prepare('SELECT * FROM announcements WHERE targetStudentId IS NULL ORDER BY createdAt DESC').all();
+    }
     res.json(announcements);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -424,6 +497,52 @@ app.post('/api/settings', authenticateToken, (req: any, res) => {
   try {
     db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('app_settings', JSON.stringify(req.body));
     res.json({ message: 'Settings updated' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Programs
+app.get('/api/programs', (req, res) => {
+  try {
+    const programs = db.prepare('SELECT * FROM programs WHERE isActive = 1 ORDER BY name ASC').all();
+    res.json(programs);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/programs', authenticateToken, (req: any, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
+  const { name, price, description, includes } = req.body;
+  if (!name || price === undefined) return res.status(400).json({ error: 'Name and price are required' });
+  const id = 'prg_' + Date.now();
+  try {
+    db.prepare('INSERT INTO programs (id, name, price, description, includes, createdAt) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(id, name, price, description || '', includes || '', new Date().toISOString());
+    res.json({ id });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/programs/:id', authenticateToken, (req: any, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
+  const { name, price, description, includes, isActive } = req.body;
+  try {
+    db.prepare('UPDATE programs SET name = ?, price = ?, description = ?, includes = ?, isActive = ? WHERE id = ?')
+      .run(name, price, description, includes, isActive === false ? 0 : 1, req.params.id);
+    res.json({ message: 'Updated' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/programs/:id', authenticateToken, (req: any, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
+  try {
+    db.prepare('DELETE FROM programs WHERE id = ?').run(req.params.id);
+    res.json({ message: 'Deleted' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

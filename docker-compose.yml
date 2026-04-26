@@ -1,0 +1,15 @@
+services:
+  rumah-inklusif:
+    build: .
+    container_name: rumah-inklusif-adiba
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+    environment:
+      - NODE_ENV=production
+      - JWT_SECRET=change-this-to-something-secure-in-casaos
+      - DB_PATH=/app/data/data.db
+      - UPLOADS_DIR=/app/uploads
+    restart: unless-stopped

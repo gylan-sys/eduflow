@@ -90,97 +90,105 @@ export const Students: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Daftar Siswa</h2>
-          <p className="text-gray-500">Kelola informasi dan perkembangan siswa Anda (Local Store).</p>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-gray-900 tracking-tighter leading-tight italic uppercase">
+            Data Siswa
+          </h1>
+          <p className="text-gray-500 font-bold text-[10px] sm:text-xs uppercase tracking-[0.2em] mt-2 italic flex items-center gap-2">
+            <Users className="w-4 h-4 text-indigo-500" /> Database Pertumbuhan Adiba
+          </p>
         </div>
         {profile?.role === 'admin' && (
           <button 
             onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl transition-all shadow-md shadow-blue-100"
+            className="flex items-center justify-center gap-2 bg-gray-900 hover:bg-black text-white px-8 py-4 rounded-[1.2rem] transition-all shadow-xl shadow-gray-200 text-[10px] font-black uppercase tracking-widest"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="w-4 h-4" />
             <span>Siswa Baru</span>
           </button>
         )}
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-gray-100 bg-gray-50/30 flex items-center gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <div className="p-4 sm:p-6 border-b border-gray-100 bg-gray-50/30 flex flex-col sm:flex-row items-center gap-4">
+          <div className="relative flex-1 w-full">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input 
               type="text" 
               placeholder="Cari nama siswa..." 
-              value={search}
+              value={search || ''}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-white border border-gray-200 pl-10 pr-4 py-2 rounded-xl text-sm outline-none focus:border-blue-500 transition-colors"
+              className="w-full bg-white border border-gray-200 pl-11 pr-4 py-3.5 rounded-[1.2rem] text-sm font-bold text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all shadow-inner"
             />
+          </div>
+          <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border border-gray-100 shrink-0 w-full sm:w-auto">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-3">Total: {filteredStudents.length}</span>
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="border-b border-gray-100">
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Nama</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Tipe Program</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Orang Tua</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Kontak</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider"></th>
+              <tr className="border-b border-gray-100 bg-gray-50/50">
+                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Siswa</th>
+                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Program</th>
+                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Wali Murid</th>
+                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Kontak</th>
+                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">Memuat data...</td>
+                  <td colSpan={5} className="px-8 py-12 text-center text-gray-400 font-black uppercase tracking-widest text-xs animate-pulse">Memuat Database...</td>
                 </tr>
               ) : filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center gap-2">
-                       <Users className="w-8 h-8 text-gray-300" />
-                      <p className="text-gray-500 font-medium">Belum ada data siswa</p>
+                  <td colSpan={5} className="px-8 py-20 text-center">
+                    <div className="flex flex-col items-center gap-4">
+                       <Users className="w-12 h-12 text-gray-200" />
+                      <p className="text-gray-400 font-black uppercase tracking-widest text-[10px]">Belum ada data siswa tercatat</p>
                     </div>
                   </td>
                 </tr>
               ) : filteredStudents.map((student) => (
                 <tr key={student.id} className="hover:bg-gray-50/50 transition-colors group">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 font-bold">
+                  <td className="px-8 py-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 font-black text-lg shadow-sm border border-indigo-100">
                         {student.name.charAt(0)}
                       </div>
                       <div>
-                        <p className="font-bold text-gray-900 uppercase tracking-tight">{student.name}</p>
-                        <p className="text-xs text-gray-500">{student.educationLevel || 'Tidak Spesifik'}</p>
+                        <p className="font-black text-gray-900 uppercase tracking-tighter text-base italic">{student.name}</p>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-0.5">{student.educationLevel || 'General'}</p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm font-medium">
+                  <td className="px-8 py-6">
                     <span className={cn(
-                      "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold shadow-sm",
-                      student.type === 'shadow' ? "bg-blue-50 text-blue-600" : 
-                      "bg-emerald-50 text-emerald-600"
+                      "inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border shadow-sm",
+                      student.type === 'shadow' ? "bg-blue-50 text-blue-600 border-blue-100" : 
+                      "bg-emerald-50 text-emerald-600 border-emerald-100"
                     )}>
                       {student.type === 'shadow' ? <GraduationCap className="w-3 h-3" /> : <Waves className="w-3 h-3" />}
-                      <span className="capitalize">{student.type === 'shadow' ? 'Shadow Teacher' : 'Les Renang'}</span>
+                      {student.type === 'shadow' ? 'Shadow Teacher' : 'Les Renang'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-600">
+                  <td className="px-8 py-6 text-sm font-bold text-gray-600">
                     {student.parentName || '-'}
                   </td>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-500">
+                  <td className="px-8 py-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">
                     <div className="flex items-center gap-2">
-                      <Phone className="w-3 h-3 opacity-40" />
+                      <Phone className="w-3.5 h-3.5 text-gray-300" />
                       {student.phone || '-'}
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-right">
+                  <td className="px-8 py-6 text-right">
                     <button 
                       onClick={() => handleDelete(student.id)}
-                      className="p-2 text-red-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                      className="p-3 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all active:scale-95"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -189,6 +197,49 @@ export const Students: React.FC = () => {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile View Card List */}
+        <div className="sm:hidden grid grid-cols-1 divide-y divide-gray-50">
+          {loading ? (
+             <div className="p-10 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest animate-pulse">Memuat...</div>
+          ) : filteredStudents.length === 0 ? (
+            <div className="p-10 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">Tidak ada data</div>
+          ) : filteredStudents.map((student) => (
+             <div key={student.id} className="p-5 space-y-4 active:bg-gray-50 transition-colors">
+                <div className="flex items-center justify-between">
+                   <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 font-black text-lg shadow-sm border border-indigo-100 shrink-0">
+                        {student.name.charAt(0)}
+                      </div>
+                      <div className="min-w-0">
+                         <h4 className="font-black text-gray-900 uppercase tracking-tighter truncate italic">{student.name}</h4>
+                         <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-0.5">{student.educationLevel || 'General'}</p>
+                      </div>
+                   </div>
+                   <button 
+                    onClick={() => handleDelete(student.id)}
+                    className="p-2.5 text-gray-300 hover:text-red-600 rounded-xl"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex items-center justify-between gap-4 pt-2">
+                   <span className={cn(
+                      "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border",
+                      student.type === 'shadow' ? "bg-blue-50 text-blue-600 border-blue-100" : 
+                      "bg-emerald-50 text-emerald-600 border-emerald-100"
+                    )}>
+                      {student.type === 'shadow' ? <GraduationCap className="w-3 h-3" /> : <Waves className="w-3 h-3" />}
+                      {student.type === 'shadow' ? 'Shadow' : 'Renang'}
+                    </span>
+                    <div className="flex flex-col items-end">
+                       <span className="text-[10px] font-black text-gray-900">{student.parentName || '-'}</span>
+                       <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">{student.phone || '-'}</span>
+                    </div>
+                </div>
+             </div>
+          ))}
         </div>
       </div>
 
@@ -214,7 +265,7 @@ export const Students: React.FC = () => {
                   <input 
                     type="text" 
                     required 
-                    value={newStudent.name}
+                    value={newStudent.name || ''}
                     onChange={(e) => setNewStudent({...newStudent, name: e.target.value})}
                     className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-xl focus:border-blue-500 outline-none transition-colors" 
                     placeholder="Nama Siswa"
@@ -225,7 +276,7 @@ export const Students: React.FC = () => {
                     <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Jenjang Pend.</label>
                     <input 
                       type="text" 
-                      value={newStudent.educationLevel}
+                      value={newStudent.educationLevel || ''}
                       onChange={(e) => setNewStudent({...newStudent, educationLevel: e.target.value})}
                       className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-xl focus:border-blue-500 outline-none transition-colors" 
                       placeholder="Contoh: SD"
@@ -247,7 +298,7 @@ export const Students: React.FC = () => {
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Nama Orang Tua</label>
                   <input 
                     type="text" 
-                    value={newStudent.parentName}
+                    value={newStudent.parentName || ''}
                     onChange={(e) => setNewStudent({...newStudent, parentName: e.target.value})}
                     className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-xl focus:border-blue-500 outline-none transition-colors" 
                     placeholder="Nama Orang Tua"
@@ -257,7 +308,7 @@ export const Students: React.FC = () => {
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">No. HP Orang Tua</label>
                   <input 
                     type="text" 
-                    value={newStudent.phone}
+                    value={newStudent.phone || ''}
                     onChange={(e) => setNewStudent({...newStudent, phone: e.target.value})}
                     className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-xl focus:border-blue-500 outline-none transition-colors" 
                     placeholder="Contoh: 0812..."

@@ -10,9 +10,11 @@ export async function fetchApi(path: string, options: RequestInit = {}) {
   const res = await fetch(path, { ...options, headers });
   
   if (res.status === 401) {
-    // If not on login page, redirect
     if (!window.location.pathname.startsWith('/login')) {
+      localStorage.removeItem('adiba_token');
+      localStorage.removeItem('adiba_user');
       window.location.href = '/login';
+      return new Promise(() => {}); // Return a never-resolving promise to stop further execution during redirect
     }
     throw new Error("Sesi berakhir, silakan login kembali.");
   }

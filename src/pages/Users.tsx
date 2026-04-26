@@ -114,7 +114,7 @@ export const Users: React.FC = () => {
             <input 
               type="text" 
               placeholder="Cari nama atau email..." 
-              value={search}
+              value={search || ''}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-gray-50 border-none pl-12 pr-4 py-3 rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 transition-all"
             />
@@ -204,7 +204,7 @@ export const Users: React.FC = () => {
                     <input 
                       type="text" 
                       required 
-                      value={newUser.displayName}
+                      value={newUser.displayName || ''}
                       onChange={(e) => setNewUser({...newUser, displayName: e.target.value})}
                       className="w-full bg-gray-50 border-none px-4 py-3.5 rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
                     />
@@ -214,7 +214,7 @@ export const Users: React.FC = () => {
                     <input 
                       type="email" 
                       required 
-                      value={newUser.email}
+                      value={newUser.email || ''}
                       onChange={(e) => setNewUser({...newUser, email: e.target.value})}
                       className="w-full bg-gray-50 border-none px-4 py-3.5 rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
                     />
@@ -225,7 +225,7 @@ export const Users: React.FC = () => {
                       type="password" 
                       required 
                       minLength={6}
-                      value={newUser.password}
+                      value={newUser.password || ''}
                       onChange={(e) => setNewUser({...newUser, password: e.target.value})}
                       className="w-full bg-gray-50 border-none px-4 py-3.5 rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
                     />
