@@ -22,9 +22,15 @@ import {
 import { formatCurrency, cn } from '../lib/utils';
 import { AppSettings, Payment, Announcement, Student, Program } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { useSettings } from '../contexts/SettingsContext';
+import { translations } from '../constants/translations';
 
 export const Financials: React.FC = () => {
   const { profile } = useAuth();
+  const { settings: appSettings } = useSettings();
+  const lang = appSettings.language || 'id';
+  const t = translations[lang];
+
   const [payments, setPayments] = useState<Payment[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -247,35 +253,35 @@ export const Financials: React.FC = () => {
               exit={{ opacity: 0, scale: 0.9 }}
               className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl relative p-10 overflow-visible z-10"
             >
-              <h3 className="text-2xl font-black text-gray-900 tracking-tighter mb-8">Catat Penagihan Baru</h3>
+              <h3 className="text-2xl font-black text-gray-900 tracking-tighter mb-8">{t.record_billing}</h3>
               <form onSubmit={handleBillingSubmit} className="space-y-6">
                 <div>
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 block px-1">Siswa</label>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 block px-1">{t.select_student}</label>
                   <select 
                     required
                     value={billingForm.studentId}
                     onChange={(e) => setBillingForm({...billingForm, studentId: e.target.value})}
                     className="w-full bg-gray-50 border-none px-6 py-4 rounded-2xl text-sm font-bold text-gray-900 focus:ring-2 focus:ring-blue-600 outline-none"
                   >
-                    <option value="">Pilih Siswa</option>
+                    <option value="">{t.select_student}</option>
                     {students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 block px-1">Program (Opsional)</label>
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 block px-1">{t.select_program} ({t.optional})</label>
                     <select 
                       value={billingForm.programId}
                       onChange={(e) => handleProgramSelect(e.target.value)}
                       className="w-full bg-gray-50 border-none px-6 py-4 rounded-2xl text-sm font-bold text-gray-900 focus:ring-2 focus:ring-blue-600 outline-none"
                     >
-                      <option value="">Pilih Program</option>
+                      <option value="">{t.select_program}</option>
                       {programs.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 block px-1">Nominal Tagihan</label>
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 block px-1">{t.bill_amount}</label>
                     <input 
                       type="number" 
                       required
@@ -287,8 +293,8 @@ export const Financials: React.FC = () => {
                 </div>
 
                 <div className="flex gap-4 pt-4">
-                  <button type="button" onClick={() => setShowBillingModal(false)} className="flex-1 px-6 py-4 rounded-2xl bg-gray-100 font-bold text-xs uppercase tracking-widest">Batal</button>
-                  <button type="submit" className="flex-1 px-6 py-4 rounded-2xl bg-gray-900 text-white font-bold text-xs uppercase tracking-widest shadow-xl">Buat Tagihan</button>
+                  <button type="button" onClick={() => setShowBillingModal(false)} className="flex-1 px-6 py-4 rounded-2xl bg-gray-100 font-bold text-xs uppercase tracking-widest">{t.cancel}</button>
+                  <button type="submit" className="flex-1 px-6 py-4 rounded-2xl bg-gray-900 text-white font-bold text-xs uppercase tracking-widest shadow-xl">{t.create_bill}</button>
                 </div>
               </form>
             </motion.div>
@@ -353,10 +359,10 @@ export const Financials: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-gray-900 tracking-tighter leading-tight italic uppercase">
-            Keuangan
+            {t.financials}
           </h1>
           <p className="text-gray-500 font-bold text-[10px] sm:text-xs uppercase tracking-[0.2em] mt-2 italic">
-            {isParent ? "Informasi Pembayaran Bulanan Siswa" : "Rekapitulasi Keuangan Operasional"}
+            {isParent ? t.parent_financial_desc : t.financial_overview}
           </p>
         </div>
         {!isParent && (
@@ -398,19 +404,19 @@ export const Financials: React.FC = () => {
                 <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
                   <Wallet className="w-6 h-6" />
                 </div>
-                <h3 className="text-xl font-black text-gray-900 tracking-tight italic uppercase">Status Tagihan</h3>
+                <h3 className="text-xl font-black text-gray-900 tracking-tight italic uppercase">{t.billing_status}</h3>
               </div>
 
               {pendingPayment ? (
                 <div className="space-y-8">
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-red-50/50 p-6 rounded-[1.5rem] border border-red-100">
                     <div>
-                      <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1 italic">Tagihan Belum Dibayar</p>
+                      <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1 italic">{t.unpaid_bill}</p>
                       <h4 className="text-3xl sm:text-4xl font-black text-red-600 tracking-tighter italic">{formatCurrency(pendingPayment.amount)}</h4>
                     </div>
                     <div className="flex items-center gap-2 text-red-500 font-bold text-[10px] uppercase tracking-widest bg-white/50 px-3 py-1 rounded-full">
                       <AlertCircle className="w-3 h-3" />
-                      Masa Berlaku: {new Date(pendingPayment.date).toLocaleDateString('id-ID', { month: 'short', year: 'numeric' })}
+                      {t.bill_validity}: {new Date(pendingPayment.date).toLocaleDateString(lang === 'id' ? 'id-ID' : 'en-US', { month: 'short', year: 'numeric' })}
                     </div>
                   </div>
 
@@ -430,7 +436,7 @@ export const Financials: React.FC = () => {
                     </div>
                     <div className="flex flex-col justify-center space-y-6">
                       <div className="p-6 bg-blue-50/50 rounded-3xl border border-blue-100">
-                         <p className="text-[10px] font-black text-blue-900 uppercase tracking-widest mb-4 italic">Panduan Bayar</p>
+                         <p className="text-[10px] font-black text-blue-900 uppercase tracking-widest mb-4 italic">{t.payment_guide}</p>
                          <ul className="text-xs space-y-4 font-bold text-blue-800/70">
                            <li className="flex gap-3">
                              <span className="w-5 h-5 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center text-[10px] shrink-0">1</span>
@@ -453,7 +459,7 @@ export const Financials: React.FC = () => {
                         }}
                         className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] sm:text-xs uppercase tracking-widest py-5 rounded-[1.2rem] shadow-xl shadow-blue-100 flex items-center justify-center gap-3 transition-all hover:scale-[1.02] active:scale-95"
                       >
-                        <Upload className="w-4 h-4" /> Unggah Bukti Bayar
+                        <Upload className="w-4 h-4" /> {t.upload_proof}
                       </button>
                     </div>
                   </div>
@@ -464,8 +470,8 @@ export const Financials: React.FC = () => {
                     <CheckCircle2 className="w-10 h-10" />
                   </div>
                   <div className="text-center">
-                    <h4 className="text-xl font-black text-gray-900 tracking-tight">Tagihan Lunas</h4>
-                    <p className="text-gray-500 text-xs font-medium max-w-xs mt-1">Terima kasih! Tidak ada tagihan tertunda saat ini.</p>
+                    <h4 className="text-xl font-black text-gray-900 tracking-tight">{t.bill_paid_title}</h4>
+                    <p className="text-gray-500 text-xs font-medium max-w-xs mt-1">{t.bill_paid_desc}</p>
                   </div>
                 </div>
               )}
@@ -540,7 +546,7 @@ export const Financials: React.FC = () => {
                    <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl w-fit mb-6">
                       <TrendingUp className="w-6 h-6"/>
                    </div>
-                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Pendapatan Terverifikasi</p>
+                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{t.total_verified_revenue}</p>
                    <h3 className="text-4xl font-black text-gray-900 tracking-tighter">{formatCurrency(totalRevenue)}</h3>
                    <div className="mt-4 flex items-center gap-2 text-emerald-500 text-[10px] font-black uppercase">
                       <TrendingUp className="w-3 h-3" /> +12% dari bulan lalu
@@ -554,10 +560,10 @@ export const Financials: React.FC = () => {
                    <div className="p-4 bg-red-50 text-red-600 rounded-2xl w-fit mb-6">
                       <Clock className="w-6 h-6"/>
                    </div>
-                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Tagihan Tertunda</p>
+                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{t.pending_bills}</p>
                    <h3 className="text-4xl font-black text-gray-900 tracking-tighter">{formatCurrency(payments.filter(p => p.status === 'pending').reduce((s, p) => s + p.amount, 0))}</h3>
                    <div className="mt-4 flex items-center gap-2 text-red-500 text-[10px] font-black uppercase">
-                      {payments.filter(p => p.status === 'pending').length} Orang belum bayar
+                      {payments.filter(p => p.status === 'pending').length} {t.people_unpaid}
                    </div>
                 </div>
               </div>
@@ -569,25 +575,25 @@ export const Financials: React.FC = () => {
             <div className="px-8 py-6 border-b border-gray-50 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <History className="w-5 h-5 text-gray-400" />
-                <h3 className="text-lg font-black text-gray-900 tracking-tight">Riwayat Pembayaran</h3>
+                <h3 className="text-lg font-black text-gray-900 tracking-tight">{t.history}</h3>
               </div>
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{payments.length} Transaksi</span>
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{payments.length} {t.transaction}</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-gray-50/50">
-                    <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Waktu</th>
-                    {!isParent && <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Siswa</th>}
-                    <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Jumlah</th>
-                    <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
-                    <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Bukti</th>
-                    {!isParent && <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Aksi</th>}
+                    <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">{t.time}</th>
+                    {!isParent && <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">{t.students}</th>}
+                    <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">{t.amount}</th>
+                    <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">{t.status}</th>
+                    <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">{t.proof}</th>
+                    {!isParent && <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">{t.action}</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {payments.length === 0 ? (
-                    <tr><td colSpan={isParent ? 4 : 6} className="p-16 text-center text-gray-300 text-xs font-black uppercase tracking-widest">Tidak ada riwayat transaksi</td></tr>
+                    <tr><td colSpan={isParent ? 4 : 6} className="p-16 text-center text-gray-300 text-xs font-black uppercase tracking-widest">{t.no_transactions}</td></tr>
                   ) : (
                     payments.map(p => (
                       <tr key={p.id} className="hover:bg-gray-50/50 transition-colors">
@@ -617,7 +623,7 @@ export const Financials: React.FC = () => {
                               <ExternalLink className="w-4 h-4" />
                             </a>
                           ) : (
-                            <span className="text-[10px] font-black text-gray-300 uppercase tracking-tighter">Tidak Ada</span>
+                            <span className="text-[10px] font-black text-gray-300 uppercase tracking-tighter">{t.no_proof}</span>
                           )}
                         </td>
                         {!isParent && (
@@ -627,7 +633,7 @@ export const Financials: React.FC = () => {
                                  onClick={() => handleVerifyPayment(p.id)}
                                  className="px-3 py-1 bg-emerald-600 text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all"
                                >
-                                 Verifikasi
+                                 {t.verify}
                                </button>
                              )}
                            </td>

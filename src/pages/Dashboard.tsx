@@ -12,7 +12,9 @@ import {
   Waves,
   GraduationCap,
   ShieldCheck,
-  Bell
+  Bell,
+  CreditCard,
+  AlertCircle
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Student, Session, Payment, Announcement } from '../types';
@@ -28,9 +30,16 @@ import {
 import { formatCurrency, cn } from '../lib/utils';
 import { format } from 'date-fns';
 import { fetchApi } from '../lib/api';
+import { useSettings } from '../contexts/SettingsContext';
+import { translations } from '../constants/translations';
 
 export const Dashboard: React.FC = () => {
   const { profile, activeBusinessLine } = useAuth();
+  const { settings: appSettings } = useSettings();
+  
+  const lang = appSettings.language || 'id';
+  const t = translations[lang];
+
   const [stats, setStats] = useState({
     students: 0,
     revenue: 0,
@@ -107,7 +116,7 @@ export const Dashboard: React.FC = () => {
           </div>
           <div>
             <h1 className="text-2xl sm:text-3xl md:text-5xl font-black text-gray-900 tracking-tighter leading-tight italic uppercase font-display">
-              Halo, {profile?.displayName?.split(' ')[0] || 'User'}!
+              {t.welcome}, {profile?.displayName?.split(' ')[0] || 'User'}!
             </h1>
             <div className="flex items-center gap-2 mt-1">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
@@ -137,29 +146,40 @@ export const Dashboard: React.FC = () => {
       {/* Bill Notification for Parents */}
       {isParent && pendingBills.length > 0 && (
         <motion.div 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-red-50 border border-red-100 p-5 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl shadow-red-50/50"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="relative overflow-hidden bg-white border-2 border-red-500/20 p-6 sm:p-8 rounded-[2.5rem] flex flex-col lg:flex-row items-center justify-between gap-8 shadow-2xl shadow-red-100"
         >
-          <div className="flex items-center gap-4 w-full md:w-auto">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center shadow-inner shrink-0">
-               <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8" />
+          {/* Decorative background element */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-red-500/5 rounded-full -ml-12 -mb-12 blur-xl"></div>
+
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 relative z-10 w-full lg:w-auto text-center sm:text-left">
+            <div className="w-20 h-20 bg-red-500 text-white rounded-3xl flex items-center justify-center shadow-lg shadow-red-200 shrink-0 transform -rotate-3 animate-pulse">
+               <CreditCard className="w-10 h-10" />
             </div>
-            <div>
-              <h3 className="text-lg font-black text-red-900 tracking-tight">Tagihan Tertunda!</h3>
-              <p className="text-red-600/80 text-[10px] sm:text-xs font-bold uppercase tracking-widest mt-0.5">Ada {pendingBills.length} tagihan yang perlu diselesaikan</p>
+            <div className="space-y-1">
+              <div className="flex items-center justify-center sm:justify-start gap-2">
+                <AlertCircle className="w-4 h-4 text-red-500" />
+                <h3 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tighter uppercase font-display">{t.pending_bills}</h3>
+              </div>
+              <p className="text-gray-500 font-medium text-sm sm:text-base max-w-md">
+                {t.bill_notice.replace('{count}', pendingBills.length.toString())}
+              </p>
             </div>
           </div>
-          <div className="flex items-center justify-between md:justify-end gap-6 w-full md:w-auto mt-2 md:mt-0 pt-4 md:pt-0 border-t md:border-t-0 border-red-200/50">
-            <div className="text-left md:text-right">
-               <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">Total Tagihan</p>
-               <p className="text-xl font-black text-red-700">{formatCurrency(pendingBills.reduce((s, b) => s + b.amount, 0))}</p>
+
+          <div className="flex flex-col sm:flex-row items-center gap-6 w-full lg:w-auto relative z-10">
+            <div className="text-center sm:text-right px-6 py-4 bg-gray-50 rounded-2xl border border-gray-100 flex-1 sm:flex-none">
+               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{t.total_obligation}</p>
+               <p className="text-3xl font-black text-gray-900 tracking-tighter italic font-display">{formatCurrency(pendingBills.reduce((s, b) => s + b.amount, 0))}</p>
             </div>
             <Link 
               to="/financials" 
-              className="bg-red-600 text-white px-6 sm:px-8 py-4 rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-widest shadow-lg shadow-red-200 hover:bg-red-700 transition-all active:scale-95 text-center flex-1 sm:flex-none"
+              className="group bg-gray-900 text-white px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-gray-200 hover:bg-indigo-600 transition-all active:scale-95 text-center flex items-center gap-3 w-full sm:w-auto justify-center"
             >
-              Bayar Sekarang
+              {t.pay_now}
+              <ArrowUpRight className="w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
             </Link>
           </div>
         </motion.div>
@@ -170,9 +190,9 @@ export const Dashboard: React.FC = () => {
         {isParent ? (
            <>
             <StatCard 
-              title="Status Belajar" 
+              title={t.child_progress} 
               value="Sangat Baik" 
-              change="Bulan Ini" 
+              change={t.monthly_revenue} 
               icon={BookOpen} 
               color="blue" 
             />
@@ -184,7 +204,7 @@ export const Dashboard: React.FC = () => {
               color="emerald" 
             />
             <StatCard 
-              title="Kehadiran" 
+              title={t.attendance} 
               value="100%" 
               change="Hadir" 
               icon={ShieldCheck} 
@@ -201,21 +221,21 @@ export const Dashboard: React.FC = () => {
         ) : (
           <>
             <StatCard 
-              title="Total Siswa" 
+              title={t.active_students} 
               value={stats.students.toString()} 
               change="+0" 
               icon={Users} 
               color="blue" 
             />
             <StatCard 
-              title="Total Pendapatan" 
+              title={t.monthly_revenue} 
               value={formatCurrency(stats.revenue)} 
               change="+0" 
               icon={TrendingUp} 
               color="emerald" 
             />
             <StatCard 
-              title="Kehadiran Rata-rata" 
+              title={t.attendance_rate} 
               value={stats.attendance + "%"} 
               change="Stabil" 
               icon={Clock} 
@@ -245,10 +265,10 @@ export const Dashboard: React.FC = () => {
                 <TrendingUp className="w-10 h-10 text-emerald-600" />
               </div>
               <div>
-                <h3 className="text-xl font-black text-gray-900 uppercase font-display">Perkembangan Anak</h3>
-                <p className="text-gray-500 max-w-xs mx-auto mt-2">Semua laporan dan aktivitas anak Anda terekam dengan baik dalam sistem.</p>
+                <h3 className="text-xl font-black text-gray-900 uppercase font-display">{t.child_progress}</h3>
+                <p className="text-gray-500 max-w-xs mx-auto mt-2">{t.progress_desc}</p>
               </div>
-              <Link to="/progress" className="inline-block bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest whitespace-nowrap">Lihat Laporan Lengkap</Link>
+              <Link to="/progress" className="inline-block bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest whitespace-nowrap">{t.view_full_report}</Link>
             </div>
           ) : (
             <>
@@ -295,7 +315,7 @@ export const Dashboard: React.FC = () => {
         <div className="space-y-6">
           <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="font-black text-gray-900 uppercase tracking-widest text-xs">Jadwal Mendatang</h3>
+              <h3 className="font-black text-gray-900 uppercase tracking-widest text-xs">{t.upcoming_sessions}</h3>
               <Plus className="w-4 h-4 text-gray-300" />
             </div>
             <div className="space-y-4">
@@ -317,11 +337,11 @@ export const Dashboard: React.FC = () => {
             <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform">
                <ShieldCheck className="w-32 h-32" />
             </div>
-            <h3 className="font-black text-xs uppercase tracking-[0.2em] mb-4 text-indigo-400">Pemberitahuan</h3>
+            <h3 className="font-black text-xs uppercase tracking-[0.2em] mb-4 text-indigo-400">{t.announcements}</h3>
             
             <div className="space-y-4 mb-6">
               {announcements.length === 0 ? (
-                <p className="text-gray-400 text-[10px] uppercase font-bold tracking-widest">Tidak ada pengumuman baru.</p>
+                <p className="text-gray-400 text-[10px] uppercase font-bold tracking-widest">No active announcements</p>
               ) : announcements.map(ann => (
                 <div key={ann.id} className="border-l-2 border-indigo-500 pl-3 py-1">
                   <p className="text-[10px] font-black uppercase text-indigo-300 mb-1">{ann.type}</p>

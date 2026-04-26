@@ -80,6 +80,8 @@ export interface AppSettings {
   appName: string;
   appLogoUrl: string;
   themeColor: string;
+  fontFamily?: string;
+  language?: 'id' | 'en';
   monthlyFee?: number;
   qrisUrl?: string;
 }

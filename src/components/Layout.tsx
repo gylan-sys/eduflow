@@ -24,22 +24,27 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useSettings } from '../contexts/SettingsContext';
 import { AppSettings } from '../types';
 
+import { translations } from '../constants/translations';
+
 export const Layout: React.FC = () => {
   const { profile, logout, activeBusinessLine, setActiveBusinessLine } = useAuth();
   const { settings: appSettings } = useSettings();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  const lang = appSettings.language || 'id';
+  const t = translations[lang];
+
   const navItems = [
-    { name: 'Dashboard', path: '/', icon: LayoutDashboard, roles: ['admin', 'teacher', 'parent'] },
-    { name: 'Siswa', path: '/students', icon: Users, roles: ['admin', 'teacher'] },
-    { name: 'Jadwal', path: '/schedule', icon: Calendar, roles: ['admin', 'teacher', 'parent'] },
-    { name: 'Kehadiran', path: '/attendance', icon: ClipboardCheck, roles: ['admin', 'teacher'] },
-    { name: 'Financials', path: '/financials', icon: Wallet, roles: ['admin', 'parent'] },
-    { name: 'Progress', path: '/progress', icon: LineChart, roles: ['admin', 'teacher', 'parent'] },
-    { name: 'Info', path: '/announcements', icon: Megaphone, roles: ['admin', 'teacher', 'parent'] },
-    { name: 'Users', path: '/users', icon: ShieldCheck, roles: ['admin'] },
-    { name: 'Pengaturan', path: '/settings', icon: Settings, roles: ['admin'] },
+    { name: t.dashboard, path: '/', icon: LayoutDashboard, roles: ['admin', 'teacher', 'parent'] },
+    { name: t.students, path: '/students', icon: Users, roles: ['admin', 'teacher'] },
+    { name: t.schedule, path: '/schedule', icon: Calendar, roles: ['admin', 'teacher', 'parent'] },
+    { name: t.attendance, path: '/attendance', icon: ClipboardCheck, roles: ['admin', 'teacher'] },
+    { name: t.financials, path: '/financials', icon: Wallet, roles: ['admin', 'parent'] },
+    { name: t.progress, path: '/progress', icon: LineChart, roles: ['admin', 'teacher', 'parent'] },
+    { name: t.info, path: '/announcements', icon: Megaphone, roles: ['admin', 'teacher', 'parent'] },
+    { name: t.users, path: '/users', icon: ShieldCheck, roles: ['admin'] },
+    { name: t.settings, path: '/settings', icon: Settings, roles: ['admin'] },
   ];
 
   const filteredNavItems = navItems.filter(item => 
@@ -112,7 +117,7 @@ export const Layout: React.FC = () => {
 
               {/* Navigation Section */}
               <nav className="flex-1 px-6 space-y-1.5 py-4 overflow-y-auto">
-                <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-4 px-4">Menu Utama</p>
+                <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-4 px-4">{t.main_menu}</p>
                 {filteredNavItems.map((item) => {
                   const isActive = location.pathname === item.path;
                   return (
@@ -140,7 +145,7 @@ export const Layout: React.FC = () => {
                 {/* Business Line Toggle */}
                 {(profile?.role === 'admin' || (profile?.role === 'teacher' && profile?.businessLine === 'both')) && (
                   <div className="mt-10 mb-6">
-                    <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-4 px-4">Filter Bisnis</p>
+                    <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-4 px-4">{t.business_filter}</p>
                     <div className="grid grid-cols-1 gap-2 p-2 bg-gray-50 rounded-[1.75rem]">
                       <button 
                         onClick={() => setActiveBusinessLine('shadow')}
@@ -151,7 +156,7 @@ export const Layout: React.FC = () => {
                       >
                         <div className="flex items-center gap-2">
                           <Briefcase className="w-3.5 h-3.5" />
-                          <span>Shadow</span>
+                          <span>{t.shadow}</span>
                         </div>
                         {activeBusinessLine === 'shadow' && <ChevronRight className="w-3.5 h-3.5" />}
                       </button>
@@ -164,7 +169,7 @@ export const Layout: React.FC = () => {
                       >
                         <div className="flex items-center gap-2">
                           <Waves className="w-3.5 h-3.5" />
-                          <span>Renang</span>
+                          <span>{t.swimming}</span>
                         </div>
                         {activeBusinessLine === 'swimming' && <ChevronRight className="w-3.5 h-3.5" />}
                       </button>
@@ -177,7 +182,7 @@ export const Layout: React.FC = () => {
                       >
                          <div className="flex items-center gap-2">
                           <LayoutDashboard className="w-3.5 h-3.5" />
-                          <span>Semua</span>
+                          <span>{t.all}</span>
                         </div>
                         {activeBusinessLine === 'both' && <ChevronRight className="w-3.5 h-3.5" />}
                       </button>
@@ -211,15 +216,15 @@ export const Layout: React.FC = () => {
                       <Settings className="w-4 h-4 text-gray-300 group-hover:rotate-90 transition-transform" />
                    </Link>
 
-                   <button 
-                    onClick={() => logout()}
-                    className="flex items-center gap-4 w-full p-3 rounded-2xl text-red-500 hover:bg-red-50 transition-all font-bold text-sm tracking-tight"
-                   >
-                     <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white shadow-sm">
-                        <LogOut className="w-5 h-5" />
-                     </div>
-                     <span>Keluar</span>
-                   </button>
+                    <button 
+                     onClick={() => logout()}
+                     className="flex items-center gap-4 w-full p-3 rounded-2xl text-red-500 hover:bg-red-50 transition-all font-bold text-sm tracking-tight"
+                    >
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white shadow-sm">
+                         <LogOut className="w-5 h-5" />
+                      </div>
+                      <span>{t.logout}</span>
+                    </button>
                 </div>
               </div>
             </motion.aside>
@@ -234,7 +239,7 @@ export const Layout: React.FC = () => {
           <div className="flex items-center gap-6">
              <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-2xl border border-gray-100 shadow-inner">
                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-               <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Server Lokal Aktif</span>
+               <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{t.server_active}</span>
              </div>
           </div>
 
@@ -248,7 +253,7 @@ export const Layout: React.FC = () => {
              <Link to="/profile" className="flex items-center gap-4 hover:opacity-80 transition-opacity">
                 <div className="text-right">
                    <p className="text-sm font-black text-gray-900 tracking-tight leading-none">{profile?.displayName}</p>
-                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Lihat Profil</p>
+                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{t.view_profile}</p>
                 </div>
                 <div className="w-12 h-12 rounded-2xl bg-gray-50 border border-gray-100 p-0.5 shadow-sm overflow-hidden transform hover:scale-105 transition-transform duration-300">
                    <img 
@@ -308,7 +313,7 @@ export const Layout: React.FC = () => {
               className="w-full h-full object-cover" 
             />
           </div>
-          <span className="text-[8px] font-black uppercase tracking-tighter mt-1">Profil</span>
+          <span className="text-[8px] font-black uppercase tracking-tighter mt-1">{t.profile}</span>
         </Link>
       </div>
     </div>

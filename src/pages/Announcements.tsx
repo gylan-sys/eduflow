@@ -13,10 +13,16 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
+import { useSettings } from '../contexts/SettingsContext';
+import { translations } from '../constants/translations';
 import { format } from 'date-fns';
 
 export const Announcements: React.FC = () => {
   const { profile } = useAuth();
+  const { settings: appSettings } = useSettings();
+  const lang = appSettings.language || 'id';
+  const t = translations[lang];
+
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -103,8 +109,8 @@ export const Announcements: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Informasi & Program</h2>
-          <p className="text-gray-500">Update berita terbaru, program Inklusif Adiba, dan informasi penting lainnya (Local Mode).</p>
+          <h2 className="text-2xl font-bold text-gray-900 tracking-tight">{t.info_program}</h2>
+          <p className="text-gray-500">{t.announcement_desc}</p>
         </div>
         {canManage && (
           <button 
@@ -112,16 +118,16 @@ export const Announcements: React.FC = () => {
             className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-[1.5rem] font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-indigo-100 active:scale-95"
           >
             <Plus className="w-5 h-5" />
-            <span>Tambah Info Baru</span>
+            <span>{t.add_info}</span>
           </button>
         )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading ? (
-          <div className="col-span-full py-20 text-center text-gray-400 font-bold uppercase tracking-widest animate-pulse">Memuat data...</div>
+          <div className="col-span-full py-20 text-center text-gray-400 font-bold uppercase tracking-widest animate-pulse">{t.loading_database}</div>
         ) : announcements.length === 0 ? (
-          <div className="col-span-full py-20 text-center text-gray-400 font-bold uppercase tracking-widest bg-white rounded-[2.5rem] border border-dashed border-gray-200">Belum ada informasi.</div>
+          <div className="col-span-full py-20 text-center text-gray-400 font-bold uppercase tracking-widest bg-white rounded-[2.5rem] border border-dashed border-gray-200">{t.no_info}</div>
         ) : announcements.map((item) => (
           <motion.div 
             layout
@@ -144,7 +150,7 @@ export const Announcements: React.FC = () => {
                    <Info className="w-5 h-5 transition-transform group-hover:-rotate-12" />}
                 </div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-                  {item.type === 'program' ? 'Program' : item.type === 'event' ? 'Agenda' : 'Informasi'}
+                  {item.type === 'program' ? t.program : item.type === 'event' ? t.agenda : t.info}
                 </span>
               </div>
               {canManage && (
@@ -177,7 +183,7 @@ export const Announcements: React.FC = () => {
                    <div className="min-w-0">
                       <p className="text-[10px] font-black text-gray-900 uppercase truncate tracking-tight">{item.authorName}</p>
                       <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
-                        {item.createdAt ? format(new Date(item.createdAt), 'dd MMM yyyy') : 'Baru saja'}
+                        {item.createdAt ? format(new Date(item.createdAt), 'dd MMM yyyy') : t.just_now}
                       </p>
                    </div>
                 </div>
@@ -200,8 +206,8 @@ export const Announcements: React.FC = () => {
             >
               <div className="p-8 border-b border-gray-100 flex items-center justify-between bg-indigo-600 text-white">
                 <div>
-                  <h3 className="text-xl font-bold tracking-tight">Buat Info Baru</h3>
-                  <p className="text-indigo-100 text-xs font-medium">Bagikan informasi atau program ke seluruh user.</p>
+                  <h3 className="text-xl font-bold tracking-tight">{t.create_info}</h3>
+                  <p className="text-indigo-100 text-xs font-medium">{t.announcement_desc}</p>
                 </div>
                 <button 
                   onClick={() => setIsAddModalOpen(false)} 
@@ -214,19 +220,19 @@ export const Announcements: React.FC = () => {
               <form onSubmit={handleCreateAnnouncement} className="p-8 space-y-6">
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Judul Informasi</label>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">{t.info_title}</label>
                     <input 
                       type="text" 
                       required 
                       value={newAnnouncement.title || ''}
                       onChange={(e) => setNewAnnouncement({...newAnnouncement, title: e.target.value})}
                       className="w-full bg-gray-50 border-none px-4 py-4 rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500 transition-all" 
-                      placeholder="Contoh: Pendaftaran Program Renang Baru"
+                      placeholder={t.info_title}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Tipe</label>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">{t.info_type}</label>
                     <div className="grid grid-cols-3 gap-2">
                        {['info', 'program', 'event'].map((type) => (
                          <button
@@ -240,21 +246,21 @@ export const Announcements: React.FC = () => {
                                : "bg-gray-50 border-transparent text-gray-400 hover:bg-gray-100"
                            )}
                          >
-                           {type}
+                           {type === 'info' ? t.info : type === 'program' ? t.program : t.agenda}
                          </button>
                        ))}
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Isi Informasi</label>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">{t.info_content}</label>
                     <textarea 
                       required 
                       rows={4}
                       value={newAnnouncement.content}
                       onChange={(e) => setNewAnnouncement({...newAnnouncement, content: e.target.value})}
                       className="w-full bg-gray-50 border-none px-4 py-4 rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500 transition-all resize-none" 
-                      placeholder="Tuliskan detail informasi di sini..."
+                      placeholder={t.info_content}
                     />
                   </div>
                 </div>
@@ -269,7 +275,7 @@ export const Announcements: React.FC = () => {
                   ) : (
                     <>
                       <Megaphone className="w-5 h-5" />
-                      <span>Publikasikan</span>
+                      <span>{t.publish}</span>
                     </>
                   )}
                 </button>

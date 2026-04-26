@@ -1,7 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&family=Lexend:wght@300;400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&family=Comic+Neue:wght@400;700&family=Montserrat:wght@400;600;700;800&family=Nunito:wght@400;600;700;800&family=Raleway:wght@400;600;700;800&family=Ubuntu:wght@400;700&family=Fredoka:wght@400;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Lexend", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Lexend", sans-serif;
+  --font-sans: var(--app-font-sans, "Quicksand", ui-sans-serif, system-ui, sans-serif);
+  --font-display: var(--app-font-display, "Quicksand", sans-serif);
 }

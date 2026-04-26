@@ -45,6 +45,16 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [settings.appName]);
 
+  useEffect(() => {
+    if (settings.fontFamily) {
+      document.documentElement.style.setProperty('--app-font-sans', `"${settings.fontFamily}", "Quicksand", ui-sans-serif, system-ui, sans-serif`);
+      document.documentElement.style.setProperty('--app-font-display', `"${settings.fontFamily}", "Quicksand", sans-serif`);
+    } else {
+      document.documentElement.style.setProperty('--app-font-sans', `"Quicksand", ui-sans-serif, system-ui, sans-serif`);
+      document.documentElement.style.setProperty('--app-font-display', `"Quicksand", sans-serif`);
+    }
+  }, [settings.fontFamily]);
+
   return (
     <SettingsContext.Provider value={{ settings, loading, refreshSettings: fetchSettings }}>
       {children}

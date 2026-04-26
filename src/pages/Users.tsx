@@ -14,10 +14,16 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
+import { useSettings } from '../contexts/SettingsContext';
+import { translations } from '../constants/translations';
 import { fetchApi } from '../lib/api';
 
 export const Users: React.FC = () => {
   const { profile: currentUser } = useAuth();
+  const { settings: appSettings } = useSettings();
+  const lang = appSettings.language || 'id';
+  const t = translations[lang];
+
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,15 +101,15 @@ export const Users: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Manajemen User</h2>
-          <p className="text-gray-500">Kelola akun guru, ortu, dan admin sistem (Firebase Cloud).</p>
+          <h2 className="text-2xl font-bold text-gray-900 tracking-tight">{t.user_management}</h2>
+          <p className="text-gray-500">{t.user_desc}</p>
         </div>
         <button 
           onClick={() => setIsAddModalOpen(true)}
           className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-[1.5rem] font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-blue-100 active:scale-95"
         >
           <UserPlus className="w-5 h-5" />
-          <span>Tambah User Baru</span>
+          <span>{t.add_user}</span>
         </button>
       </div>
 
@@ -113,7 +119,7 @@ export const Users: React.FC = () => {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input 
               type="text" 
-              placeholder="Cari nama atau email..." 
+              placeholder={t.search_user} 
               value={search || ''}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-gray-50 border-none pl-12 pr-4 py-3 rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 transition-all"
@@ -125,15 +131,15 @@ export const Users: React.FC = () => {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-gray-50 bg-gray-50/50">
-                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Identitas</th>
-                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Peran (Role)</th>
-                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Unit Bisnis / Anak</th>
+                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">{t.identity}</th>
+                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">{t.role}</th>
+                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">{t.business_unit}</th>
                 <th className="px-6 py-4 text-right"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {loading ? (
-                <tr><td colSpan={4} className="px-6 py-10 text-center text-gray-400">Memuat data...</td></tr>
+                <tr><td colSpan={4} className="px-6 py-10 text-center text-gray-400">{t.loading_database}</td></tr>
               ) : filteredUsers.map((user) => (
                 <tr key={user.uid} className="hover:bg-gray-50/50 transition-colors group">
                   <td className="px-6 py-4">
@@ -160,7 +166,7 @@ export const Users: React.FC = () => {
                   <td className="px-6 py-4">
                     <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
                       {user.role === 'parent' ? (
-                        <>Anak: <span className="text-gray-900">{students.find(s => s.id === user.studentId)?.name || 'Tidak terset'}</span></>
+                        <>{t.child}: <span className="text-gray-900">{students.find(s => s.id === user.studentId)?.name || 'N/A'}</span></>
                       ) : (
                         user.businessLine || '-'
                       )}
@@ -188,7 +194,7 @@ export const Users: React.FC = () => {
             >
               <div className="p-8 border-b border-gray-100 bg-blue-600 text-white">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold tracking-tight">Tambah User</h3>
+                  <h3 className="text-xl font-bold tracking-tight">{t.add_user_title}</h3>
                   <button onClick={() => setIsAddModalOpen(false)} className="hover:bg-white/10 p-2 rounded-xl">
                     <X className="w-6 h-6" />
                   </button>
@@ -200,7 +206,7 @@ export const Users: React.FC = () => {
                 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Nama Lengkap</label>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">{t.full_name}</label>
                     <input 
                       type="text" 
                       required 
@@ -210,7 +216,7 @@ export const Users: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Alamat Email</label>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">{t.email}</label>
                     <input 
                       type="email" 
                       required 
@@ -220,7 +226,7 @@ export const Users: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Password</label>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">{t.password}</label>
                     <input 
                       type="password" 
                       required 
@@ -232,28 +238,28 @@ export const Users: React.FC = () => {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Peran</label>
+                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">{t.role}</label>
                       <select 
                         value={newUser.role}
                         onChange={(e) => setNewUser({...newUser, role: e.target.value as any})}
                         className="w-full bg-gray-50 border-none px-4 py-3.5 rounded-2xl text-sm font-black uppercase tracking-widest outline-none cursor-pointer"
                       >
-                        <option value="teacher">Guru</option>
+                        <option value="teacher">{t.teacher}</option>
                         <option value="admin">Admin</option>
-                        <option value="parent">Orang Tua</option>
+                        <option value="parent">{t.parent}</option>
                       </select>
                     </div>
                     <div>
                       {newUser.role === 'parent' ? (
                         <>
-                          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Pilih Anak</label>
+                          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">{t.select_child}</label>
                           <select 
                             required={newUser.role === 'parent'}
                             value={newUser.studentId}
                             onChange={(e) => setNewUser({...newUser, studentId: e.target.value})}
                             className="w-full bg-gray-50 border-none px-4 py-3.5 rounded-2xl text-sm font-black uppercase tracking-widest outline-none cursor-pointer"
                           >
-                            <option value="">Pilih Siswa</option>
+                            <option value="">{t.select_child}</option>
                             {students.map(s => (
                               <option key={s.id} value={s.id}>{s.name}</option>
                             ))}
@@ -261,7 +267,7 @@ export const Users: React.FC = () => {
                         </>
                       ) : (
                         <>
-                          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Lini Bisnis</label>
+                          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">{t.business_line}</label>
                           <select 
                             value={newUser.businessLine}
                             onChange={(e) => setNewUser({...newUser, businessLine: e.target.value as any})}
@@ -269,7 +275,7 @@ export const Users: React.FC = () => {
                           >
                             <option value="shadow">Shadow</option>
                             <option value="swimming">Swimming</option>
-                            <option value="both">Keduanya</option>
+                            <option value="both">{t.both}</option>
                           </select>
                         </>
                       )}
@@ -283,7 +289,7 @@ export const Users: React.FC = () => {
                     disabled={isSubmitting}
                     className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-black text-sm uppercase tracking-widest py-4 rounded-[1.5rem] flex items-center justify-center gap-2"
                   >
-                    {isSubmitting ? "Memproses..." : "Tambah Akun"}
+                    {isSubmitting ? t.signing_in : t.add_account}
                   </button>
                 </div>
               </form>

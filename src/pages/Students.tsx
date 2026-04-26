@@ -16,9 +16,16 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchApi } from '../lib/api';
+import { useSettings } from '../contexts/SettingsContext';
+import { translations } from '../constants/translations';
 
 export const Students: React.FC = () => {
   const { profile, activeBusinessLine } = useAuth();
+  const { settings: appSettings } = useSettings();
+  
+  const lang = appSettings.language || 'id';
+  const t = translations[lang];
+
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -93,10 +100,10 @@ export const Students: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-gray-900 tracking-tighter leading-tight italic uppercase">
-            Data Siswa
+            {t.students_data}
           </h1>
           <p className="text-gray-500 font-bold text-[10px] sm:text-xs uppercase tracking-[0.2em] mt-2 italic flex items-center gap-2">
-            <Users className="w-4 h-4 text-indigo-500" /> Database Pertumbuhan Adiba
+            <Users className="w-4 h-4 text-indigo-500" /> {t.database_growth}
           </p>
         </div>
         {profile?.role === 'admin' && (
@@ -105,7 +112,7 @@ export const Students: React.FC = () => {
             className="flex items-center justify-center gap-2 bg-gray-900 hover:bg-black text-white px-8 py-4 rounded-[1.2rem] transition-all shadow-xl shadow-gray-200 text-[10px] font-black uppercase tracking-widest"
           >
             <Plus className="w-4 h-4" />
-            <span>Siswa Baru</span>
+            <span>{t.new_student}</span>
           </button>
         )}
       </div>
@@ -116,14 +123,14 @@ export const Students: React.FC = () => {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input 
               type="text" 
-              placeholder="Cari nama siswa..." 
+              placeholder={t.search_student} 
               value={search || ''}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-white border border-gray-200 pl-11 pr-4 py-3.5 rounded-[1.2rem] text-sm font-bold text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all shadow-inner"
             />
           </div>
           <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border border-gray-100 shrink-0 w-full sm:w-auto">
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-3">Total: {filteredStudents.length}</span>
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-3">{t.total}: {filteredStudents.length}</span>
           </div>
         </div>
 
@@ -132,24 +139,24 @@ export const Students: React.FC = () => {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/50">
-                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Siswa</th>
-                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Program</th>
-                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Wali Murid</th>
-                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Kontak</th>
-                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Aksi</th>
+                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">{t.students}</th>
+                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">{t.program}</th>
+                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">{t.parent_name}</th>
+                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">{t.contact}</th>
+                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">{t.action}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-8 py-12 text-center text-gray-400 font-black uppercase tracking-widest text-xs animate-pulse">Memuat Database...</td>
+                  <td colSpan={5} className="px-8 py-12 text-center text-gray-400 font-black uppercase tracking-widest text-xs animate-pulse">{t.loading_database}</td>
                 </tr>
               ) : filteredStudents.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-8 py-20 text-center">
                     <div className="flex flex-col items-center gap-4">
                        <Users className="w-12 h-12 text-gray-200" />
-                      <p className="text-gray-400 font-black uppercase tracking-widest text-[10px]">Belum ada data siswa tercatat</p>
+                      <p className="text-gray-400 font-black uppercase tracking-widest text-[10px]">{t.no_students}</p>
                     </div>
                   </td>
                 </tr>
@@ -173,7 +180,7 @@ export const Students: React.FC = () => {
                       "bg-emerald-50 text-emerald-600 border-emerald-100"
                     )}>
                       {student.type === 'shadow' ? <GraduationCap className="w-3 h-3" /> : <Waves className="w-3 h-3" />}
-                      {student.type === 'shadow' ? 'Shadow Teacher' : 'Les Renang'}
+                      {student.type === 'shadow' ? t.shadow : t.swimming}
                     </span>
                   </td>
                   <td className="px-8 py-6 text-sm font-bold text-gray-600">
@@ -202,9 +209,9 @@ export const Students: React.FC = () => {
         {/* Mobile View Card List */}
         <div className="sm:hidden grid grid-cols-1 divide-y divide-gray-50">
           {loading ? (
-             <div className="p-10 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest animate-pulse">Memuat...</div>
+             <div className="p-10 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest animate-pulse">{t.loading_database.replace('...', '')}</div>
           ) : filteredStudents.length === 0 ? (
-            <div className="p-10 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">Tidak ada data</div>
+            <div className="p-10 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">{t.no_students}</div>
           ) : filteredStudents.map((student) => (
              <div key={student.id} className="p-5 space-y-4 active:bg-gray-50 transition-colors">
                 <div className="flex items-center justify-between">
@@ -231,7 +238,7 @@ export const Students: React.FC = () => {
                       "bg-emerald-50 text-emerald-600 border-emerald-100"
                     )}>
                       {student.type === 'shadow' ? <GraduationCap className="w-3 h-3" /> : <Waves className="w-3 h-3" />}
-                      {student.type === 'shadow' ? 'Shadow' : 'Renang'}
+                      {student.type === 'shadow' ? t.shadow : t.swimming}
                     </span>
                     <div className="flex flex-col items-end">
                        <span className="text-[10px] font-black text-gray-900">{student.parentName || '-'}</span>
@@ -254,69 +261,69 @@ export const Students: React.FC = () => {
               className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden"
             >
               <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-blue-600 text-white">
-                <h3 className="text-xl font-bold tracking-tight">Siswa Baru</h3>
+                <h3 className="text-xl font-bold tracking-tight">{t.new_student}</h3>
                 <button onClick={() => setIsAddModalOpen(false)} className="hover:bg-white/10 p-1 rounded-lg">
                   <X className="w-6 h-6" />
                 </button>
               </div>
               <form onSubmit={handleAddStudent} className="p-6 space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Nama Lengkap</label>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">{t.full_name}</label>
                   <input 
                     type="text" 
                     required 
                     value={newStudent.name || ''}
                     onChange={(e) => setNewStudent({...newStudent, name: e.target.value})}
                     className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-xl focus:border-blue-500 outline-none transition-colors" 
-                    placeholder="Nama Siswa"
+                    placeholder={t.full_name}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Jenjang Pend.</label>
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">{t.education_level}</label>
                     <input 
                       type="text" 
                       value={newStudent.educationLevel || ''}
                       onChange={(e) => setNewStudent({...newStudent, educationLevel: e.target.value})}
                       className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-xl focus:border-blue-500 outline-none transition-colors" 
-                      placeholder="Contoh: SD"
+                      placeholder="Ex: SD"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Tipe Program</label>
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">{t.program_type}</label>
                     <select 
                       value={newStudent.type}
                       onChange={(e) => setNewStudent({...newStudent, type: e.target.value as any})}
                       className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-xl focus:border-blue-500 outline-none transition-colors cursor-pointer"
                     >
-                      <option value="shadow">Shadow Teacher</option>
-                      <option value="swimming">Les Renang</option>
+                      <option value="shadow">{t.shadow}</option>
+                      <option value="swimming">{t.swimming}</option>
                     </select>
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Nama Orang Tua</label>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">{t.parent_name}</label>
                   <input 
                     type="text" 
                     value={newStudent.parentName || ''}
                     onChange={(e) => setNewStudent({...newStudent, parentName: e.target.value})}
                     className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-xl focus:border-blue-500 outline-none transition-colors" 
-                    placeholder="Nama Orang Tua"
+                    placeholder={t.parent_name}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">No. HP Orang Tua</label>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">{t.parent_phone}</label>
                   <input 
                     type="text" 
                     value={newStudent.phone || ''}
                     onChange={(e) => setNewStudent({...newStudent, phone: e.target.value})}
                     className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-xl focus:border-blue-500 outline-none transition-colors" 
-                    placeholder="Contoh: 0812..."
+                    placeholder="Ex: 0812..."
                   />
                 </div>
                 <div className="pt-4">
                   <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-100 transition-all">
-                    Simpan Data Siswa
+                    {t.save_student}
                   </button>
                 </div>
               </form>

@@ -16,10 +16,15 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useSettings } from '../contexts/SettingsContext';
 import { fetchApi } from '../lib/api';
+import { translations } from '../constants/translations';
 
 export const Login: React.FC = () => {
   const { loginWithEmail, login, user, error } = useAuth();
   const { settings: appSettings } = useSettings();
+  
+  const lang = appSettings.language || 'id';
+  const t = translations[lang];
+
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -110,7 +115,7 @@ export const Login: React.FC = () => {
             </div>
             <div>
               <h1 className="text-3xl font-black tracking-tighter leading-none">{appSettings.appName}</h1>
-              <p className="text-blue-100/60 text-[10px] font-black uppercase tracking-widest mt-1">Sistem Terpadu Indonesia</p>
+              <p className="text-blue-100/60 text-[10px] font-black uppercase tracking-widest mt-1">{t.management_system}</p>
             </div>
           </motion.div>
 
@@ -120,10 +125,10 @@ export const Login: React.FC = () => {
               initial={{ opacity: 0, x: -30 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 }}
-              className="text-5xl lg:text-7xl font-black tracking-tight leading-[0.9] text-white"
+              className="text-5xl lg:text-7xl font-black tracking-tight leading-[0.9] text-white uppercase italic font-display"
             >
-              Masa Depan <br />
-              <span className="text-blue-300">Pendidikan Anak.</span>
+              School<br />
+              <span className="text-blue-300">Management.</span>
             </motion.h2>
             <motion.p 
               initial={{ opacity: 0 }}
@@ -131,7 +136,7 @@ export const Login: React.FC = () => {
               transition={{ delay: 0.3 }}
               className="text-xl text-blue-100/80 mt-8 font-medium leading-relaxed"
             >
-              Pantau perkembangan belajar dan kegiatan les anak Anda dalam satu platform yang aman dan transparan.
+              {t.login_subtitle}
             </motion.p>
           </div>
 
@@ -212,8 +217,8 @@ export const Login: React.FC = () => {
           </div>
 
           <div className="mb-10">
-            <h3 className="text-4xl font-black text-gray-900 tracking-tight leading-tight">Selamat Datang Silakan Masuk</h3>
-            <p className="text-gray-500 font-medium mt-3">Akses dashboard anda untuk memantau data.</p>
+            <h3 className="text-4xl font-black text-gray-900 tracking-tight leading-tight uppercase italic">{t.login_title}</h3>
+            <p className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mt-2">{t.management_system}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -232,7 +237,7 @@ export const Login: React.FC = () => {
 
             <div className="space-y-4">
               <div className="group">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 ml-1 mb-2 block">Email</label>
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 ml-1 mb-2 block">{t.email}</label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
                   <input 
@@ -247,7 +252,7 @@ export const Login: React.FC = () => {
               </div>
 
               <div className="group">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 ml-1 mb-2 block">Sandi</label>
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 ml-1 mb-2 block">{t.password}</label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
                   <input 
@@ -265,9 +270,9 @@ export const Login: React.FC = () => {
             <div className="flex items-center justify-between px-1">
               <label className="flex items-center gap-2 cursor-pointer group">
                 <div className="w-5 h-5 rounded-md border-2 border-gray-200 group-hover:border-blue-600 transition-colors" />
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Ingat Saya</span>
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{t.remember_me}</span>
               </label>
-              <button type="button" className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">Butuh Bantuan?</button>
+              <button type="button" className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">{t.need_help}</button>
             </div>
 
             <button 
@@ -276,7 +281,7 @@ export const Login: React.FC = () => {
               className="w-full hover:shadow-2xl hover:shadow-blue-200 text-white font-black text-xs uppercase tracking-widest py-5 px-4 rounded-[2rem] transition-all flex items-center justify-center gap-3 group active:scale-[0.98] mb-4"
               style={{ backgroundColor: appSettings.themeColor }}
             >
-              {isSubmitting ? "Memproses..." : "Masuk Ke Akun"}
+              {isSubmitting ? t.signing_in : t.signin}
               {!isSubmitting && <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
             </button>
           </form>
