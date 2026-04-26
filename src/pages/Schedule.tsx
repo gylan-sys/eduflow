@@ -129,7 +129,7 @@ export const Schedule: React.FC = () => {
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-4 md:px-0">
         <div>
-          <h1 className="text-3xl sm:text-4xl md:text-6xl font-black text-gray-900 tracking-tighter leading-tight italic uppercase drop-shadow-sm">
+          <h1 className="text-3xl sm:text-4xl md:text-6xl font-black text-gray-900 tracking-tighter leading-tight italic uppercase drop-shadow-sm font-display">
             Penjadwalan
           </h1>
           <div className="flex items-center gap-3 mt-3">
@@ -176,7 +176,7 @@ export const Schedule: React.FC = () => {
              <div className="w-14 h-14 bg-indigo-600 rounded-[1.2rem] flex items-center justify-center text-white shadow-xl shadow-indigo-100">
                 <CalendarIcon className="w-7 h-7" />
              </div>
-             <h3 className="text-2xl sm:text-3xl font-black text-gray-900 uppercase tracking-tighter italic leading-none">
+             <h3 className="text-2xl sm:text-3xl font-black text-gray-900 uppercase tracking-tighter italic leading-none font-display">
               {format(currentDate, 'MMMM yyyy', { locale: idLocale })}
             </h3>
           </div>

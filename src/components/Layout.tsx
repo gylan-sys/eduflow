@@ -105,7 +105,7 @@ export const Layout: React.FC = () => {
                     )}
                   </div>
                   <div>
-                    <h1 className="text-lg font-black text-gray-900 tracking-tighter leading-none">{appSettings.appName}</h1>
+                    <h1 className="text-lg font-black text-gray-900 tracking-tighter leading-none font-display">{appSettings.appName}</h1>
                   </div>
                 </Link>
               </div>

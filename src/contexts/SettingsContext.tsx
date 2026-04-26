@@ -39,6 +39,12 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     fetchSettings();
   }, []);
 
+  useEffect(() => {
+    if (settings.appName) {
+      document.title = settings.appName;
+    }
+  }, [settings.appName]);
+
   return (
     <SettingsContext.Provider value={{ settings, loading, refreshSettings: fetchSettings }}>
       {children}

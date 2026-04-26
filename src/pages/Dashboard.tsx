@@ -106,7 +106,7 @@ export const Dashboard: React.FC = () => {
               <GraduationCap className="w-7 h-7 text-indigo-600" />}
           </div>
           <div>
-            <h1 className="text-2xl sm:text-3xl md:text-5xl font-black text-gray-900 tracking-tighter leading-tight italic uppercase">
+            <h1 className="text-2xl sm:text-3xl md:text-5xl font-black text-gray-900 tracking-tighter leading-tight italic uppercase font-display">
               Halo, {profile?.displayName?.split(' ')[0] || 'User'}!
             </h1>
             <div className="flex items-center gap-2 mt-1">
@@ -245,7 +245,7 @@ export const Dashboard: React.FC = () => {
                 <TrendingUp className="w-10 h-10 text-emerald-600" />
               </div>
               <div>
-                <h3 className="text-xl font-black text-gray-900 uppercase">Perkembangan Anak</h3>
+                <h3 className="text-xl font-black text-gray-900 uppercase font-display">Perkembangan Anak</h3>
                 <p className="text-gray-500 max-w-xs mx-auto mt-2">Semua laporan dan aktivitas anak Anda terekam dengan baik dalam sistem.</p>
               </div>
               <Link to="/progress" className="inline-block bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest whitespace-nowrap">Lihat Laporan Lengkap</Link>
@@ -367,7 +367,7 @@ const StatCard = ({ title, value, change, icon: Icon, color }: any) => {
       </div>
       <div>
         <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{title}</h4>
-        <p className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tighter italic">{value}</p>
+        <p className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tighter italic font-display">{value}</p>
       </div>
     </motion.div>
   );
