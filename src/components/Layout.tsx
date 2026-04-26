@@ -94,7 +94,12 @@ export const Layout: React.FC = () => {
               animate={{ x: 0 }}
               exit={{ x: -300 }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-gray-100 flex flex-col md:relative md:translate-x-0"
+              className="fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-gray-100 flex flex-col md:relative md:translate-x-0 overflow-hidden"
+              style={appSettings.sidebarBgImage ? {
+                backgroundImage: `linear-gradient(rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.94)), url(${appSettings.sidebarBgImage})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center'
+              } : {}}
             >
               {/* Branding Section */}
               <div className="p-8 hidden md:block">

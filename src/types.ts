@@ -80,6 +80,7 @@ export interface AppSettings {
   appName: string;
   appLogoUrl: string;
   themeColor: string;
+  sidebarBgImage?: string;
   fontFamily?: string;
   language?: 'id' | 'en';
   monthlyFee?: number;

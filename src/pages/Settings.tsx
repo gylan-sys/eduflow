@@ -31,12 +31,13 @@ export const Settings: React.FC = () => {
   const [uploading, setUploading] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const qrisInputRef = useRef<HTMLInputElement>(null);
+  const sidebarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setSettings(globalSettings);
   }, [globalSettings]);
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'qris') => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'qris' | 'sidebar') => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -59,6 +60,8 @@ export const Settings: React.FC = () => {
       const data = await res.json();
       if (type === 'logo') {
         setSettings({ ...settings, appLogoUrl: data.url });
+      } else if (type === 'sidebar') {
+        setSettings({ ...settings, sidebarBgImage: data.url });
       } else {
         setSettings({ ...settings, qrisUrl: data.url });
       }
@@ -305,6 +308,58 @@ export const Settings: React.FC = () => {
                         />
                         <div className="w-14 h-14 rounded-2xl border-2 border-dashed border-gray-200 flex items-center justify-center text-gray-300">
                            <Plus className="w-5 h-5" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] px-1 italic">
+                      <ImageIcon className="w-3.5 h-3.5" /> {settings.language === 'en' ? 'Sidebar Background' : 'Latar Belakang Sidebar'}
+                    </label>
+                    <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-3xl border border-gray-100/50">
+                      <div className="w-24 h-24 bg-white rounded-2xl flex items-center justify-center p-2 shadow-inner border border-gray-100 shrink-0 overflow-hidden relative">
+                        {settings.sidebarBgImage ? (
+                          <>
+                            <img src={settings.sidebarBgImage} alt="Sidebar Bg" className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/10" />
+                          </>
+                        ) : (
+                          <ImageIcon className="w-8 h-8 text-gray-200" />
+                        )}
+                      </div>
+                      <div className="flex-1 space-y-3">
+                        <p className="text-[10px] font-bold text-gray-400 leading-relaxed uppercase tracking-wider">
+                          {settings.language === 'en' 
+                            ? 'Upload an image for the sidebar background. Recommended: Vertical/Portrait image.' 
+                            : 'Unggah gambar untuk latar belakang sidebar. Disarankan: Gambar Vertikal/Portrait.'}
+                        </p>
+                        <input 
+                          type="file" 
+                          ref={sidebarInputRef}
+                          onChange={(e) => handleFileUpload(e, 'sidebar')}
+                          className="hidden"
+                          accept="image/*"
+                        />
+                        <div className="flex gap-2">
+                          <button 
+                            type="button"
+                            onClick={() => sidebarInputRef.current?.click()}
+                            disabled={uploading === 'sidebar'}
+                            className="bg-gray-900 hover:bg-black text-white px-5 py-2.5 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+                          >
+                            {uploading === 'sidebar' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                            {settings.language === 'en' ? 'Upload Image' : 'Unggah Gambar'}
+                          </button>
+                          {settings.sidebarBgImage && (
+                            <button 
+                              type="button"
+                              onClick={() => setSettings({ ...settings, sidebarBgImage: '' })}
+                              className="bg-white border border-red-100 text-red-500 hover:bg-red-50 px-5 py-2.5 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] transition-all"
+                            >
+                              Reset
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
