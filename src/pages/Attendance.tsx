@@ -4,8 +4,10 @@ import { ClipboardCheck, Search, CheckCircle2, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { useSettings } from '../contexts/SettingsContext';
 import { translations } from '../constants/translations';
+import { useAuth } from '../contexts/AuthContext';
 
 export const Attendance: React.FC = () => {
+  const { profile } = useAuth();
   const { settings: appSettings } = useSettings();
   const lang = appSettings.language || 'id';
   const t = translations[lang];
@@ -53,7 +55,14 @@ export const Attendance: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                students.map(s => (
+                students
+                  .filter(s => {
+                    if (profile?.role === 'teacher') {
+                      return profile.assignedStudentIds?.includes(s.id);
+                    }
+                    return true;
+                  })
+                  .map(s => (
                   <tr key={s.id} className="hover:bg-gray-50/30 transition-colors">
                     <td className="px-8 py-6">
                       <p className="text-gray-900 font-black uppercase tracking-tighter italic text-base">{s.name}</p>

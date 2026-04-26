@@ -118,6 +118,12 @@ export const Students: React.FC = () => {
   const [selectedType, setSelectedType] = useState<'all' | 'shadow' | 'swimming'>('all');
 
   const filteredStudents = students.filter(s => {
+    // Teachers only see their assigned students
+    if (profile?.role === 'teacher') {
+      const assignedIds = profile.assignedStudentIds || [];
+      if (!assignedIds.includes(s.id)) return false;
+    }
+
     const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase());
     const matchesType = selectedType === 'all' || s.type === selectedType;
     return matchesSearch && matchesType;

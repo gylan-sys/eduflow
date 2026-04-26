@@ -106,6 +106,20 @@ export const Dashboard: React.FC = () => {
     }
 
     // 3. Handle Admin/Teacher Stats
+    if (profile?.role === 'teacher') {
+      const assignedIds = profile.assignedStudentIds || [];
+      return {
+        upcoming: upcomingFiltered.filter(s => assignedIds.includes(s.studentId)),
+        stats: {
+          students: students.filter(s => assignedIds.includes(s.id)).length,
+          revenue: 0,
+          attendance: 98,
+          reports: reports.filter(r => assignedIds.includes(r.studentId)).length
+        },
+        revenueData: []
+      };
+    }
+
     const verified = payments.filter((p: any) => p.status === 'verified');
     const totalRev = verified.reduce((s: number, p: any) => s + p.amount, 0);
     
@@ -313,13 +327,15 @@ export const Dashboard: React.FC = () => {
               icon={Users} 
               color="blue" 
             />
-            <StatCard 
-              title={t.monthly_revenue} 
-              value={formatCurrency(stats.revenue)} 
-              change="+0" 
-              icon={TrendingUp} 
-              color="emerald" 
-            />
+            {profile?.role !== 'teacher' && (
+              <StatCard 
+                title={t.monthly_revenue} 
+                value={formatCurrency(stats.revenue)} 
+                change="+0" 
+                icon={TrendingUp} 
+                color="emerald" 
+              />
+            )}
             <StatCard 
               title={t.attendance_rate} 
               value={stats.attendance + "%"} 
@@ -341,62 +357,64 @@ export const Dashboard: React.FC = () => {
       {/* Main Charts / Content Area */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Chart Card */}
-        <div className={cn(
-          "lg:col-span-2 bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm relative overflow-hidden group",
-          isParent && "flex flex-col justify-center items-center text-center p-12"
-        )}>
-          {isParent ? (
-            <div className="space-y-6">
-              <div className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center mx-auto">
-                <TrendingUp className="w-10 h-10 text-emerald-600" />
-              </div>
-              <div>
-                <h3 className="text-xl font-black text-gray-900 uppercase font-display">{t.child_progress}</h3>
-                <p className="text-gray-500 max-w-xs mx-auto mt-2">{t.progress_desc}</p>
-              </div>
-              <Link to="/progress" className="inline-block bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest whitespace-nowrap">{t.view_full_report}</Link>
-            </div>
-          ) : (
-            <>
-              <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-                <TrendingUp className="w-48 h-48 -mr-10 -mt-10" />
-              </div>
-              <div className="flex items-center justify-between mb-8">
-                <h3 className="font-black text-gray-900 uppercase tracking-widest text-xs">Performa Bisnis</h3>
-                <div className="flex items-center gap-2">
-                   <div className="w-3 h-3 rounded-full bg-blue-600"></div>
-                   <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Pendapatan</span>
+        {profile?.role !== 'teacher' && (
+          <div className={cn(
+            "lg:col-span-2 bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm relative overflow-hidden group",
+            isParent && "flex flex-col justify-center items-center text-center p-12"
+          )}>
+            {isParent ? (
+              <div className="space-y-6">
+                <div className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center mx-auto">
+                  <TrendingUp className="w-10 h-10 text-emerald-600" />
                 </div>
+                <div>
+                  <h3 className="text-xl font-black text-gray-900 uppercase font-display">{t.child_progress}</h3>
+                  <p className="text-gray-500 max-w-xs mx-auto mt-2">{t.progress_desc}</p>
+                </div>
+                <Link to="/progress" className="inline-block bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest whitespace-nowrap">{t.view_full_report}</Link>
               </div>
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={revenueData.length > 0 ? revenueData : [
-                    { name: 'Start', revenue: 0 },
-                    { name: 'End', revenue: 0 },
-                  ]}>
-                    <defs>
-                      <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#2563EB" stopOpacity={0.1}/>
-                        <stop offset="95%" stopColor="#2563EB" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#9CA3AF', fontSize: 10, fontWeight: 900}} dy={10} />
-                    <YAxis hide />
-                    <Tooltip 
-                      contentStyle={{borderRadius: '24px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '16px'}}
-                      formatter={(value: any) => formatCurrency(value)}
-                    />
-                    <Area type="monotone" dataKey="revenue" stroke="#2563EB" strokeWidth={4} fillOpacity={1} fill="url(#colorRev)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </>
-          )}
-        </div>
+            ) : (
+              <>
+                <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                  <TrendingUp className="w-48 h-48 -mr-10 -mt-10" />
+                </div>
+                <div className="flex items-center justify-between mb-8">
+                  <h3 className="font-black text-gray-900 uppercase tracking-widest text-xs">Performa Bisnis</h3>
+                  <div className="flex items-center gap-2">
+                     <div className="w-3 h-3 rounded-full bg-blue-600"></div>
+                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Pendapatan</span>
+                  </div>
+                </div>
+                <div className="h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={revenueData.length > 0 ? revenueData : [
+                      { name: 'Start', revenue: 0 },
+                      { name: 'End', revenue: 0 },
+                    ]}>
+                      <defs>
+                        <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#2563EB" stopOpacity={0.1}/>
+                          <stop offset="95%" stopColor="#2563EB" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#9CA3AF', fontSize: 10, fontWeight: 900}} dy={10} />
+                      <YAxis hide />
+                      <Tooltip 
+                        contentStyle={{borderRadius: '24px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '16px'}}
+                        formatter={(value: any) => formatCurrency(value)}
+                      />
+                      <Area type="monotone" dataKey="revenue" stroke="#2563EB" strokeWidth={4} fillOpacity={1} fill="url(#colorRev)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Sidebar Cards */}
-        <div className="space-y-6">
+        <div className={cn("space-y-6", profile?.role === 'teacher' && "lg:col-span-3")}>
           <div className="bg-gray-900 p-8 rounded-[2.5rem] text-white shadow-2xl shadow-gray-200 relative overflow-hidden group">
             <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform">
                <ShieldCheck className="w-32 h-32" />

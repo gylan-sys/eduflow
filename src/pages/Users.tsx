@@ -28,9 +28,11 @@ export const Users: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'all' | UserRole>('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
 
   const [newUser, setNewUser] = useState({
     email: '',
@@ -38,7 +40,8 @@ export const Users: React.FC = () => {
     displayName: '',
     role: 'teacher' as UserRole,
     businessLine: 'shadow' as BusinessLine,
-    studentId: ''
+    studentId: '',
+    assignedStudentIds: [] as string[]
   });
 
   const fetchData = async () => {
@@ -66,32 +69,57 @@ export const Users: React.FC = () => {
     setError(null);
 
     try {
-      await fetchApi('/api/users', {
-        method: 'POST',
-        body: JSON.stringify(newUser)
-      });
+      if (editingUser) {
+        await fetchApi(`/api/users/${editingUser.uid}`, {
+          method: 'PUT',
+          body: JSON.stringify(newUser)
+        });
+      } else {
+        await fetchApi('/api/users', {
+          method: 'POST',
+          body: JSON.stringify(newUser)
+        });
+      }
       setIsAddModalOpen(false);
+      setEditingUser(null);
       setNewUser({
         email: '',
         password: '',
         displayName: '',
         role: 'teacher',
         businessLine: 'shadow',
-        studentId: ''
+        studentId: '',
+        assignedStudentIds: []
       });
       fetchData();
     } catch (err: any) {
-      console.error("Error creating user:", err);
-      setError(err.message || "Gagal membuat user baru.");
+      console.error("Error saving user:", err);
+      setError(err.message || "Gagal menyimpan data user.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const filteredUsers = users.filter(u => 
-    u.displayName?.toLowerCase().includes(search.toLowerCase()) ||
-    u.email?.toLowerCase().includes(search.toLowerCase())
-  );
+  const handleEditClick = (user: UserProfile) => {
+    setEditingUser(user);
+    setNewUser({
+      email: user.email,
+      password: '', // Leave blank unless changing
+      displayName: user.displayName || '',
+      role: user.role,
+      businessLine: user.businessLine || 'shadow',
+      studentId: user.studentId || '',
+      assignedStudentIds: user.assignedStudentIds || []
+    });
+    setIsAddModalOpen(true);
+  };
+
+  const filteredUsers = users.filter(u => {
+    const matchesSearch = u.displayName?.toLowerCase().includes(search.toLowerCase()) ||
+                         u.email?.toLowerCase().includes(search.toLowerCase());
+    const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+    return matchesSearch && matchesRole;
+  });
 
   if (currentUser?.role !== 'admin') {
     return <div className="p-8 text-center text-red-500 font-bold">Akses Ditolak. Halaman ini hanya untuk Admin.</div>;
@@ -114,8 +142,8 @@ export const Users: React.FC = () => {
       </div>
 
       <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-gray-100 flex items-center gap-4">
-          <div className="relative flex-1">
+        <div className="p-6 border-b border-gray-100 flex flex-col sm:flex-row items-center gap-4">
+          <div className="relative flex-1 w-full">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input 
               type="text" 
@@ -124,6 +152,44 @@ export const Users: React.FC = () => {
               onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-gray-50 border-none pl-12 pr-4 py-3 rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 transition-all"
             />
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
+            <button 
+              onClick={() => setRoleFilter('all')}
+              className={cn(
+                "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0",
+                roleFilter === 'all' ? "bg-gray-900 text-white shadow-lg" : "text-gray-400 hover:bg-gray-50"
+              )}
+            >
+              Semua
+            </button>
+            <button 
+              onClick={() => setRoleFilter('teacher')}
+              className={cn(
+                "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0",
+                roleFilter === 'teacher' ? "bg-blue-600 text-white shadow-lg" : "text-gray-400 hover:bg-gray-50"
+              )}
+            >
+              {t.teacher}
+            </button>
+            <button 
+              onClick={() => setRoleFilter('parent')}
+              className={cn(
+                "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0",
+                roleFilter === 'parent' ? "bg-emerald-600 text-white shadow-lg" : "text-gray-400 hover:bg-gray-50"
+              )}
+            >
+              {t.parent}
+            </button>
+            <button 
+              onClick={() => setRoleFilter('admin')}
+              className={cn(
+                "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0",
+                roleFilter === 'admin' ? "bg-red-600 text-white shadow-lg" : "text-gray-400 hover:bg-gray-50"
+              )}
+            >
+              Admin
+            </button>
           </div>
         </div>
 
@@ -167,13 +233,33 @@ export const Users: React.FC = () => {
                     <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
                       {user.role === 'parent' ? (
                         <>{t.child}: <span className="text-gray-900">{students.find(s => s.id === user.studentId)?.name || 'N/A'}</span></>
+                      ) : user.role === 'teacher' ? (
+                        <div className="flex flex-wrap gap-1">
+                          {user.assignedStudentIds && user.assignedStudentIds.length > 0 ? (
+                            user.assignedStudentIds.map(id => {
+                              const s = students.find(std => std.id === id);
+                              return s ? (
+                                <span key={id} className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-[8px] border border-gray-200">{s.name}</span>
+                              ) : null;
+                            })
+                          ) : (
+                            <span className="text-gray-300 italic">Belum ada siswa</span>
+                          )}
+                        </div>
                       ) : (
                         user.businessLine || '-'
                       )}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    {/* Local deletion functionality can be added here */}
+                    <div className="flex items-center justify-end gap-2">
+                       <button 
+                        onClick={() => handleEditClick(user)}
+                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                       >
+                          <ShieldCheck className="w-4 h-4" />
+                       </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -194,8 +280,8 @@ export const Users: React.FC = () => {
             >
               <div className="p-8 border-b border-gray-100 bg-blue-600 text-white">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold tracking-tight">{t.add_user_title}</h3>
-                  <button onClick={() => setIsAddModalOpen(false)} className="hover:bg-white/10 p-2 rounded-xl">
+                  <h3 className="text-xl font-bold tracking-tight">{editingUser ? 'Edit User' : t.add_user_title}</h3>
+                  <button onClick={() => { setIsAddModalOpen(false); setEditingUser(null); }} className="hover:bg-white/10 p-2 rounded-xl">
                     <X className="w-6 h-6" />
                   </button>
                 </div>
@@ -205,6 +291,43 @@ export const Users: React.FC = () => {
                 {error && <div className="p-4 bg-red-50 text-red-600 text-xs font-bold rounded-2xl border border-red-100">{error}</div>}
                 
                 <div className="space-y-4">
+                  {!editingUser && (
+                    <>
+                      <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">{t.email}</label>
+                        <input 
+                          type="email" 
+                          required 
+                          value={newUser.email || ''}
+                          onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                          className="w-full bg-gray-50 border-none px-4 py-3.5 rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">{t.password}</label>
+                        <input 
+                          type="password" 
+                          required 
+                          minLength={6}
+                          value={newUser.password || ''}
+                          onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                          className="w-full bg-gray-50 border-none px-4 py-3.5 rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+                        />
+                      </div>
+                    </>
+                  )}
+                  {editingUser && (
+                    <div>
+                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Ganti Password (Kosongkan jika tidak ganti)</label>
+                      <input 
+                        type="password" 
+                        minLength={6}
+                        value={newUser.password || ''}
+                        onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                        className="w-full bg-gray-50 border-none px-4 py-3.5 rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+                      />
+                    </div>
+                  )}
                   <div>
                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">{t.full_name}</label>
                     <input 
@@ -212,27 +335,6 @@ export const Users: React.FC = () => {
                       required 
                       value={newUser.displayName || ''}
                       onChange={(e) => setNewUser({...newUser, displayName: e.target.value})}
-                      className="w-full bg-gray-50 border-none px-4 py-3.5 rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">{t.email}</label>
-                    <input 
-                      type="email" 
-                      required 
-                      value={newUser.email || ''}
-                      onChange={(e) => setNewUser({...newUser, email: e.target.value})}
-                      className="w-full bg-gray-50 border-none px-4 py-3.5 rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">{t.password}</label>
-                    <input 
-                      type="password" 
-                      required 
-                      minLength={6}
-                      value={newUser.password || ''}
-                      onChange={(e) => setNewUser({...newUser, password: e.target.value})}
                       className="w-full bg-gray-50 border-none px-4 py-3.5 rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
                     />
                   </div>
@@ -281,6 +383,36 @@ export const Users: React.FC = () => {
                       )}
                     </div>
                   </div>
+
+                  {newUser.role === 'teacher' && (
+                    <div className="bg-gray-50 p-4 rounded-3xl border border-gray-100">
+                      <label className="block text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-3 px-1 italic">Tugaskan Siswa (Maks. 2)</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {students.map(s => {
+                          const isSelected = newUser.assignedStudentIds.includes(s.id);
+                          return (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => {
+                                if (isSelected) {
+                                  setNewUser({...newUser, assignedStudentIds: newUser.assignedStudentIds.filter(id => id !== s.id)});
+                                } else if (newUser.assignedStudentIds.length < 2) {
+                                  setNewUser({...newUser, assignedStudentIds: [...newUser.assignedStudentIds, s.id]});
+                                }
+                              }}
+                              className={cn(
+                                "p-3 rounded-xl border text-[10px] font-bold text-left transition-all truncate",
+                                isSelected ? "bg-indigo-600 border-indigo-600 text-white shadow-lg" : "bg-white border-gray-100 text-gray-500 hover:border-indigo-200"
+                              )}
+                            >
+                              {s.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-4">
@@ -289,7 +421,7 @@ export const Users: React.FC = () => {
                     disabled={isSubmitting}
                     className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-black text-sm uppercase tracking-widest py-4 rounded-[1.5rem] flex items-center justify-center gap-2"
                   >
-                    {isSubmitting ? t.signing_in : t.add_account}
+                    {isSubmitting ? t.signing_in : editingUser ? 'Simpan Perubahan' : t.add_account}
                   </button>
                 </div>
               </form>

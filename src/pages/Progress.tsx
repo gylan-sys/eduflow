@@ -3,8 +3,10 @@ import { fetchApi } from '../lib/api';
 import { LineChart, Plus, FileText, Search } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
 import { translations } from '../constants/translations';
+import { useAuth } from '../contexts/AuthContext';
 
 export const Progress: React.FC = () => {
+  const { profile } = useAuth();
   const { settings: appSettings } = useSettings();
   const lang = appSettings.language || 'id';
   const t = translations[lang];
@@ -43,7 +45,14 @@ export const Progress: React.FC = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {reports.map(r => (
+                {reports
+                  .filter(r => {
+                    if (profile?.role === 'teacher') {
+                      return profile.assignedStudentIds?.includes(r.studentId);
+                    }
+                    return true;
+                  })
+                  .map(r => (
                   <div key={r.id} className="p-8 border border-gray-50 rounded-[2rem] bg-white hover:shadow-2xl transition-all group relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-6 opacity-0 group-hover:opacity-5 transition-opacity">
                       <FileText className="w-20 h-20" />

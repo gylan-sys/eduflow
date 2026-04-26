@@ -80,6 +80,10 @@ export const Schedule: React.FC = () => {
 
   const handleDayClick = (day: Date) => {
     const daySessions = sessions.filter(s => {
+      if (profile?.role === 'teacher') {
+        const student = students.find(std => std.name === s.studentId);
+        if (student && !profile.assignedStudentIds?.includes(student.id)) return false;
+      }
       const sDate = parseISO(s.date || (s.startTime as string));
       return isSameDay(sDate, day);
     });
@@ -183,7 +187,7 @@ export const Schedule: React.FC = () => {
                 <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Swimming</span>
              </div>
           </div>
-          {profile?.role === 'admin' && (
+          {(profile?.role === 'admin' || profile?.role === 'teacher') && (
             <button 
               onClick={() => setIsModalOpen(true)}
               className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-gray-900 hover:bg-black text-white px-8 py-5 rounded-[1.5rem] transition-all shadow-2xl shadow-gray-200 text-[10px] font-black uppercase tracking-[0.2em] hover:scale-105 active:scale-95 group"
@@ -236,6 +240,17 @@ export const Schedule: React.FC = () => {
         <div className="flex-1 grid grid-cols-7 auto-rows-fr min-h-0">
           {calendarDays.map((day, idx) => {
             const daySessions = sessions.filter(s => {
+              // Filter by student assignment for teachers
+              if (profile?.role === 'teacher') {
+                // We need to find the student id for this session
+                // In Sessions, studentId refers to the student's name right now? 
+                // Let's check the Session type or how it's used.
+                // Line 281: s.studentId is used as name.
+                const student = students.find(std => std.name === s.studentId);
+                if (student) {
+                   if (!profile.assignedStudentIds?.includes(student.id)) return false;
+                }
+              }
               const sDate = parseISO(s.date || (s.startTime as string));
               return isSameDay(sDate, day);
             });
@@ -323,7 +338,15 @@ export const Schedule: React.FC = () => {
                     className="w-full bg-gray-50 border-none px-6 py-4 rounded-2xl text-sm font-bold text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600 transition-all shadow-inner"
                   >
                     <option value="">Pilih Siswa</option>
-                    {students.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                    {students
+                      .filter(s => {
+                        if (profile?.role === 'teacher') {
+                          return profile.assignedStudentIds?.includes(s.id);
+                        }
+                        return true;
+                      })
+                      .map(s => <option key={s.id} value={s.name}>{s.name}</option>)
+                    }
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">

@@ -37,6 +37,7 @@ db.exec(`
     role TEXT DEFAULT 'user',
     businessLine TEXT,
     studentId TEXT,
+    assignedStudentIds TEXT,
     createdAt TEXT
   );
 
@@ -118,6 +119,9 @@ try {
 } catch (e) {}
 try {
   db.exec("ALTER TABLE announcements ADD COLUMN targetStudentId TEXT");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE users ADD COLUMN assignedStudentIds TEXT");
 } catch (e) {}
 
 // Helper to seed settings if empty
@@ -208,12 +212,20 @@ app.post('/api/auth/login', async (req, res) => {
     if (!validPassword) return res.status(401).json({ error: 'Invalid password' });
 
     const token = jwt.sign(
-      { uid: user.uid, email: user.email, role: user.role, businessLine: user.businessLine, studentId: user.studentId },
+      { 
+        uid: user.uid, 
+        email: user.email, 
+        role: user.role, 
+        businessLine: user.businessLine, 
+        studentId: user.studentId,
+        assignedStudentIds: user.assignedStudentIds ? JSON.parse(user.assignedStudentIds) : []
+      },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
 
     const { password: _, ...userWithoutPassword } = user;
+    userWithoutPassword.assignedStudentIds = user.assignedStudentIds ? JSON.parse(user.assignedStudentIds) : [];
     res.json({ token, user: userWithoutPassword });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -406,8 +418,12 @@ app.post('/api/reports', authenticateToken, (req: any, res) => {
 // User Management
 app.get('/api/users', authenticateToken, (req: any, res) => {
   try {
-    const users = db.prepare('SELECT uid, email, displayName, role, businessLine, studentId, createdAt FROM users').all();
-    res.json(users);
+    const users = db.prepare('SELECT uid, email, displayName, role, businessLine, studentId, assignedStudentIds, createdAt FROM users').all() as any[];
+    const parsedUsers = users.map(u => ({
+      ...u,
+      assignedStudentIds: u.assignedStudentIds ? JSON.parse(u.assignedStudentIds) : []
+    }));
+    res.json(parsedUsers);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -415,13 +431,31 @@ app.get('/api/users', authenticateToken, (req: any, res) => {
 
 app.post('/api/users', authenticateToken, async (req: any, res: any) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
-  const { email, password, displayName, role, businessLine, studentId } = req.body;
+  const { email, password, displayName, role, businessLine, studentId, assignedStudentIds } = req.body;
   try {
     const hashedPassword = await bcrypt.hash(password || 'default123', 10);
     const uid = 'usr_' + Date.now();
-    db.prepare('INSERT INTO users (uid, email, password, displayName, role, businessLine, studentId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(uid, email, hashedPassword, displayName, role, businessLine || null, studentId || null, new Date().toISOString());
+    db.prepare('INSERT INTO users (uid, email, password, displayName, role, businessLine, studentId, assignedStudentIds, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(uid, email, hashedPassword, displayName, role, businessLine || null, studentId || null, assignedStudentIds ? JSON.stringify(assignedStudentIds) : null, new Date().toISOString());
     res.json({ uid });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/users/:uid', authenticateToken, async (req: any, res: any) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
+  const { displayName, role, businessLine, studentId, assignedStudentIds, password } = req.body;
+  try {
+    if (password) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      db.prepare('UPDATE users SET displayName = ?, role = ?, businessLine = ?, studentId = ?, assignedStudentIds = ?, password = ? WHERE uid = ?')
+        .run(displayName, role, businessLine || null, studentId || null, assignedStudentIds ? JSON.stringify(assignedStudentIds) : null, hashedPassword, req.params.uid);
+    } else {
+      db.prepare('UPDATE users SET displayName = ?, role = ?, businessLine = ?, studentId = ?, assignedStudentIds = ? WHERE uid = ?')
+        .run(displayName, role, businessLine || null, studentId || null, assignedStudentIds ? JSON.stringify(assignedStudentIds) : null, req.params.uid);
+    }
+    res.json({ message: 'User updated' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
