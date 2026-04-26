@@ -134,6 +134,7 @@ export const translations = {
     new_report: 'Laporan Baru',
     no_reports: 'Database Laporan Kosong',
     download_pdf: 'Unduh PDF',
+    no_schedule: 'Tidak ada jadwal',
   },
   en: {
     dashboard: 'Dashboard',
@@ -270,5 +271,6 @@ export const translations = {
     new_report: 'New Report',
     no_reports: 'Report Database Empty',
     download_pdf: 'Download PDF',
+    no_schedule: 'No schedule',
   }
 };

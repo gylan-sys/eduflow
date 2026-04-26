@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { 
@@ -40,66 +40,103 @@ export const Dashboard: React.FC = () => {
   const lang = appSettings.language || 'id';
   const t = translations[lang];
 
-  const [stats, setStats] = useState({
+  const [statsState, setStatsState] = useState({
     students: 0,
     revenue: 0,
     attendance: 98,
     reports: 0
   });
-  const [upcoming, setUpcoming] = useState<Session[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [pendingBills, setPendingBills] = useState<Payment[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch stats & data from local API
-        const [annData, sessions, studentsData, reportsData, paymentsData] = await Promise.all([
-          fetchApi('/api/announcements'),
-          fetchApi('/api/sessions'),
-          profile?.role === 'parent' ? fetchApi(`/api/students`) : Promise.resolve(null),
-          profile?.role === 'parent' ? fetchApi(`/api/reports`) : Promise.resolve(null),
-          profile?.role === 'parent' ? fetchApi(`/api/payments`) : Promise.resolve(null)
-        ]);
-        
-        if (annData) {
-          setAnnouncements(annData.slice(0, 3));
-        }
-
-        if (sessions) {
-          setUpcoming(sessions.filter((s: any) => new Date(s.date || s.startTime) >= new Date()).slice(0, 3));
-        }
-
-        if (profile?.role === 'parent' && studentsData && reportsData) {
-          const myChild = studentsData.find((s: any) => s.id === profile.studentId);
-          
-          if (myChild) {
-            setStats({
-              students: 1, // Only 1 child
-              revenue: 0, // Parents don't see revenue, maybe show "Sessions Paid" later
-              attendance: 100, // Hardcoded for now
-              reports: reportsData.length
-            });
-          }
-
-          if (paymentsData) {
-            setPendingBills(paymentsData.filter((p: any) => p.status === 'pending'));
-          }
-        } else if (profile?.role !== 'parent') {
-           // Admin/Teacher stats can be fetched similarly
-           // For now keeping defaults or fetching basic counts
-        }
-
-      } catch (err) {
-        console.error("Dashboard fetch error:", err);
-      } finally {
-        setLoading(false);
+  const fetchData = useCallback(async () => {
+    try {
+      // Fetch stats & data from local API
+      const [annData, sessionsData, studentsData, reportsData, paymentsData] = await Promise.all([
+        fetchApi('/api/announcements'),
+        fetchApi('/api/sessions'),
+        fetchApi('/api/students'),
+        fetchApi('/api/reports'),
+        fetchApi('/api/payments')
+      ]);
+      
+      if (annData) setAnnouncements(annData.slice(0, 3));
+      if (sessionsData) setSessions(sessionsData);
+      if (studentsData) setStudents(studentsData);
+      if (reportsData) setReports(reportsData);
+      if (paymentsData) {
+        setPayments(paymentsData);
+        setPendingBills(paymentsData.filter((p: any) => p.status === 'pending'));
       }
-    };
+    } catch (err) {
+      console.error("Dashboard fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
+  useEffect(() => {
     if (profile) fetchData();
-  }, [profile, activeBusinessLine]);
+  }, [profile, fetchData]);
+
+  const { stats, revenueData, upcoming } = useMemo(() => {
+    // 1. Calculate Upcoming Sessions
+    const upcomingFiltered = sessions
+      .filter((s: any) => new Date(s.date || s.startTime) >= new Date())
+      .slice(0, 3);
+
+    // 2. Handle Parent Stats
+    if (profile?.role === 'parent') {
+      const myChild = students.find((s: any) => s.id === profile.studentId);
+      return {
+        upcoming: upcomingFiltered,
+        stats: {
+          students: myChild ? 1 : 0,
+          revenue: 0,
+          attendance: 100,
+          reports: reports.filter(r => r.studentId === profile.studentId).length
+        },
+        revenueData: []
+      };
+    }
+
+    // 3. Handle Admin/Teacher Stats
+    const verified = payments.filter((p: any) => p.status === 'verified');
+    const totalRev = verified.reduce((s: number, p: any) => s + p.amount, 0);
+    
+    // Optimized chart data calculation (O(N) single pass)
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    const currentMonth = new Date().getMonth();
+    const revenueByMonth = new Array(12).fill(0);
+    
+    verified.forEach((p: any) => {
+      const month = new Date(p.date).getMonth();
+      if (month >= 0 && month < 12) {
+        revenueByMonth[month] += p.amount;
+      }
+    });
+
+    const chartData = months.slice(0, currentMonth + 1).map((m, i) => ({
+      name: m,
+      revenue: revenueByMonth[i]
+    }));
+
+    return {
+      upcoming: upcomingFiltered,
+      stats: {
+        students: students.length,
+        revenue: totalRev,
+        attendance: 98,
+        reports: reports.length
+      },
+      revenueData: chartData
+    };
+  }, [profile, sessions, students, reports, payments]);
 
   const isParent = profile?.role === 'parent';
 
@@ -184,6 +221,55 @@ export const Dashboard: React.FC = () => {
           </div>
         </motion.div>
       )}
+
+      {/* Upcoming Sessions Notification */}
+      <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm p-6 overflow-hidden relative group">
+        <div className="flex items-center justify-between mb-4 px-2">
+          <div className="flex items-center gap-2">
+            <Clock className="w-5 h-5 text-indigo-500" />
+            <h3 className="font-black text-gray-900 uppercase tracking-widest text-xs">{t.upcoming_sessions}</h3>
+          </div>
+          <Link to="/schedule" className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline">
+            {t.view_all_sessions}
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {upcoming.length === 0 ? (
+            <div className="col-span-full py-10 flex flex-col items-center justify-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+              <AlertCircle className="w-8 h-8 text-gray-200 mb-2" />
+              <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest italic">{t.no_schedule}</p>
+            </div>
+          ) : (
+            upcoming.map((s, index) => (
+              <motion.div 
+                key={s.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="bg-gray-50 hover:bg-white hover:shadow-xl hover:shadow-indigo-50 border border-transparent hover:border-indigo-100 p-4 rounded-2xl transition-all group/item cursor-pointer"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "w-1.5 h-12 rounded-full",
+                    s.type.includes('Shadow') ? "bg-blue-500" : "bg-emerald-500"
+                  )}></div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-0.5">{s.type}</p>
+                    <p className="text-sm font-bold text-gray-900 truncate tracking-tight">{s.studentId}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Clock className="w-3 h-3 text-gray-400" />
+                      <span className="text-[10px] font-bold text-gray-500">{s.startTime}</span>
+                      <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                      <span className="text-[10px] font-bold text-gray-500 truncate">{s.teacherId}</span>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ))
+          )}
+        </div>
+      </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -284,11 +370,9 @@ export const Dashboard: React.FC = () => {
               </div>
               <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={[
-                    { name: 'Jan', revenue: 0 },
-                    { name: 'Feb', revenue: 0 },
-                    { name: 'Mar', revenue: 0 },
-                    { name: 'Apr', revenue: 0 },
+                  <AreaChart data={revenueData.length > 0 ? revenueData : [
+                    { name: 'Start', revenue: 0 },
+                    { name: 'End', revenue: 0 },
                   ]}>
                     <defs>
                       <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
@@ -313,26 +397,6 @@ export const Dashboard: React.FC = () => {
 
         {/* Sidebar Cards */}
         <div className="space-y-6">
-          <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-black text-gray-900 uppercase tracking-widest text-xs">{t.upcoming_sessions}</h3>
-              <Plus className="w-4 h-4 text-gray-300" />
-            </div>
-            <div className="space-y-4">
-              {upcoming.length === 0 ? (
-                 <p className="text-center py-10 text-gray-400 text-xs font-bold uppercase tracking-widest">Tidak ada jadwal</p>
-              ) : upcoming.map(s => (
-                <UpcomingSession 
-                  key={s.id}
-                  student={s.studentId} 
-                  time={s.startTime}
-                  teacher={s.teacherId} 
-                  type={s.type} 
-                />
-              ))}
-            </div>
-          </div>
-
           <div className="bg-gray-900 p-8 rounded-[2.5rem] text-white shadow-2xl shadow-gray-200 relative overflow-hidden group">
             <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform">
                <ShieldCheck className="w-32 h-32" />
@@ -392,17 +456,3 @@ const StatCard = ({ title, value, change, icon: Icon, color }: any) => {
     </motion.div>
   );
 };
-
-const UpcomingSession = ({ student, time, teacher, type }: any) => (
-  <div className="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer border border-transparent hover:border-gray-100">
-    <div className={cn(
-      "w-2 h-10 rounded-full mt-1",
-      type.includes('Shadow') ? "bg-blue-400" : "bg-emerald-400"
-    )}></div>
-    <div className="flex-1 min-w-0">
-      <p className="text-sm font-bold text-gray-900 truncate">{student}</p>
-      <p className="text-xs text-gray-500">{time} • {teacher}</p>
-      <p className="text-[10px] font-semibold text-blue-600 uppercase mt-1">{type}</p>
-    </div>
-  </div>
-);

@@ -19,6 +19,10 @@ export interface Student {
   id: string;
   name: string;
   parentId: string;
+  parentName?: string;
+  phone?: string;
+  email?: string;
+  educationLevel?: string;
   dateOfBirth?: string;
   notes?: string;
   type: StudentType;
@@ -32,11 +36,13 @@ export interface Session {
   studentId: string;
   teacherId: string;
   type: SessionType;
+  date?: string;
   startTime: any; // Firestore Timestamp
   endTime: any;   // Firestore Timestamp
   status: SessionStatus;
   transportFee?: number;
   sessionFee?: number;
+  notes?: string;
 }
 
 export interface Attendance {

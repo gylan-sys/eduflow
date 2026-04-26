@@ -10,7 +10,9 @@ import {
   X,
   Phone,
   Calendar,
-  Trash2
+  Trash2,
+  MessageSquare,
+  Edit2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -41,6 +43,9 @@ export const Students: React.FC = () => {
     type: (activeBusinessLine === 'both' ? 'shadow' : activeBusinessLine) as any
   });
 
+  const [editStudent, setEditStudent] = useState<Student | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
   const fetchStudents = async () => {
     try {
       const data = await fetchApi('/api/students');
@@ -59,11 +64,19 @@ export const Students: React.FC = () => {
   const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await fetchApi('/api/students', {
-        method: 'POST',
-        body: JSON.stringify(newStudent)
-      });
+      if (editStudent) {
+        await fetchApi(`/api/students/${editStudent.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(newStudent)
+        });
+      } else {
+        await fetchApi('/api/students', {
+          method: 'POST',
+          body: JSON.stringify(newStudent)
+        });
+      }
       setIsAddModalOpen(false);
+      setEditStudent(null);
       setNewStudent({ 
         name: '', 
         parentName: '', 
@@ -74,9 +87,22 @@ export const Students: React.FC = () => {
       });
       fetchStudents();
     } catch (error) {
-      console.error("Error adding student:", error);
-      alert("Gagal menambah siswa");
+      console.error("Error saving student:", error);
+      alert("Gagal menyimpan data siswa");
     }
+  };
+
+  const handleEditClick = (student: Student) => {
+    setEditStudent(student);
+    setNewStudent({
+      name: student.name,
+      parentName: student.parentName || '',
+      phone: student.phone || '',
+      email: student.email || '',
+      educationLevel: student.educationLevel || '',
+      type: student.type
+    });
+    setIsAddModalOpen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -89,10 +115,12 @@ export const Students: React.FC = () => {
     }
   };
 
+  const [selectedType, setSelectedType] = useState<'all' | 'shadow' | 'swimming'>('all');
+
   const filteredStudents = students.filter(s => {
     const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase());
-    // Note: Local DB schema matches the structure I'll use
-    return matchesSearch;
+    const matchesType = selectedType === 'all' || s.type === selectedType;
+    return matchesSearch && matchesType;
   });
 
   return (
@@ -129,8 +157,34 @@ export const Students: React.FC = () => {
               className="w-full bg-white border border-gray-200 pl-11 pr-4 py-3.5 rounded-[1.2rem] text-sm font-bold text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all shadow-inner"
             />
           </div>
-          <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border border-gray-100 shrink-0 w-full sm:w-auto">
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-3">{t.total}: {filteredStudents.length}</span>
+          <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-gray-100 shrink-0 w-full sm:w-auto">
+            <button 
+              onClick={() => setSelectedType('all')}
+              className={cn(
+                "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                selectedType === 'all' ? "bg-gray-900 text-white shadow-lg" : "text-gray-400 hover:bg-gray-50"
+              )}
+            >
+              Semua
+            </button>
+            <button 
+              onClick={() => setSelectedType('shadow')}
+              className={cn(
+                "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                selectedType === 'shadow' ? "bg-blue-600 text-white shadow-lg" : "text-gray-400 hover:bg-gray-50"
+              )}
+            >
+              Shadow
+            </button>
+            <button 
+              onClick={() => setSelectedType('swimming')}
+              className={cn(
+                "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                selectedType === 'swimming' ? "bg-emerald-600 text-white shadow-lg" : "text-gray-400 hover:bg-gray-50"
+              )}
+            >
+              Renang
+            </button>
           </div>
         </div>
 
@@ -193,12 +247,30 @@ export const Students: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-8 py-6 text-right">
-                    <button 
-                      onClick={() => handleDelete(student.id)}
-                      className="p-3 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all active:scale-95"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center justify-end gap-1">
+                      {student.phone && (
+                        <a 
+                          href={`https://wa.me/${student.phone.replace(/[^0-9]/g, '')}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-3 text-gray-300 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                        </a>
+                      )}
+                      <button 
+                        onClick={() => handleEditClick(student)}
+                        className="p-3 text-gray-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(student.id)}
+                        className="p-3 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all active:scale-95"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -224,14 +296,22 @@ export const Students: React.FC = () => {
                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-0.5">{student.educationLevel || 'General'}</p>
                       </div>
                    </div>
-                   <button 
-                    onClick={() => handleDelete(student.id)}
-                    className="p-2.5 text-gray-300 hover:text-red-600 rounded-xl"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="flex items-center justify-between gap-4 pt-2">
+                    <div className="flex items-center gap-2">
+                       <button 
+                        onClick={() => handleEditClick(student)}
+                        className="p-2.5 text-gray-300 hover:text-indigo-600 rounded-xl"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                       <button 
+                        onClick={() => handleDelete(student.id)}
+                        className="p-2.5 text-gray-300 hover:text-red-600 rounded-xl"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                 </div>
+                 <div className="flex items-center justify-between gap-4 pt-2">
                    <span className={cn(
                       "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border",
                       student.type === 'shadow' ? "bg-blue-50 text-blue-600 border-blue-100" : 
@@ -241,10 +321,22 @@ export const Students: React.FC = () => {
                       {student.type === 'shadow' ? t.shadow : t.swimming}
                     </span>
                     <div className="flex flex-col items-end">
-                       <span className="text-[10px] font-black text-gray-900">{student.parentName || '-'}</span>
+                       <div className="flex items-center gap-2">
+                         {student.phone && (
+                           <a 
+                             href={`https://wa.me/${student.phone.replace(/[^0-9]/g, '')}`}
+                             target="_blank"
+                             rel="noreferrer"
+                             className="text-emerald-500"
+                           >
+                             <MessageSquare className="w-3 h-3" />
+                           </a>
+                         )}
+                         <span className="text-[10px] font-black text-gray-900">{student.parentName || '-'}</span>
+                       </div>
                        <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">{student.phone || '-'}</span>
                     </div>
-                </div>
+                 </div>
              </div>
           ))}
         </div>
@@ -260,9 +352,9 @@ export const Students: React.FC = () => {
               exit={{ opacity: 0, scale: 0.95 }}
               className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden"
             >
-              <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-blue-600 text-white">
-                <h3 className="text-xl font-bold tracking-tight">{t.new_student}</h3>
-                <button onClick={() => setIsAddModalOpen(false)} className="hover:bg-white/10 p-1 rounded-lg">
+              <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-900 text-white">
+                <h3 className="text-xl font-black italic uppercase tracking-tighter shadow-sm">{editStudent ? 'Edit Data Siswa' : t.new_student}</h3>
+                <button onClick={() => { setIsAddModalOpen(false); setEditStudent(null); }} className="hover:bg-white/10 p-1 rounded-lg">
                   <X className="w-6 h-6" />
                 </button>
               </div>

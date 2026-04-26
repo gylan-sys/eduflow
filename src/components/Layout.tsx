@@ -10,7 +10,6 @@ import {
   Users,
   Settings,
   ShieldCheck,
-  LogOut,
   Menu,
   X,
   Waves,
@@ -197,7 +196,7 @@ export const Layout: React.FC = () => {
               </nav>
 
               {/* User Account Section */}
-              <div className="p-6 border-t border-gray-50 bg-gray-50/30">
+              <div className="p-6 border-t border-gray-50 bg-gray-50/30 pb-32 md:pb-6">
                 <div className="space-y-2">
                    <Link 
                     to="/profile" 
@@ -221,15 +220,6 @@ export const Layout: React.FC = () => {
                       <Settings className="w-4 h-4 text-gray-300 group-hover:rotate-90 transition-transform" />
                    </Link>
 
-                    <button 
-                     onClick={() => logout()}
-                     className="flex items-center gap-4 w-full p-3 rounded-2xl text-red-500 hover:bg-red-50 transition-all font-bold text-sm tracking-tight"
-                    >
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white shadow-sm">
-                         <LogOut className="w-5 h-5" />
-                      </div>
-                      <span>{t.logout}</span>
-                    </button>
                 </div>
               </div>
             </motion.aside>

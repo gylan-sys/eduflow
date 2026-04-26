@@ -8,7 +8,8 @@ import {
   X,
   Clock,
   User as UserIcon,
-  Trash2
+  Trash2,
+  Edit2
 } from 'lucide-react';
 import { 
   format, 
@@ -47,6 +48,7 @@ export const Schedule: React.FC = () => {
     endTime: '09:00',
     notes: ''
   });
+  const [editingSession, setEditingSession] = useState<Session | null>(null);
 
   const fetchData = async () => {
     try {
@@ -89,15 +91,42 @@ export const Schedule: React.FC = () => {
   const handleAddSession = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await fetchApi('/api/sessions', {
-        method: 'POST',
-        body: JSON.stringify(newSession)
-      });
+      if (editingSession) {
+        await fetchApi(`/api/sessions/${editingSession.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(newSession)
+        });
+      } else {
+        await fetchApi('/api/sessions', {
+          method: 'POST',
+          body: JSON.stringify(newSession)
+        });
+      }
       setIsModalOpen(false);
+      setEditingSession(null);
+      setNewSession({
+        studentId: '',
+        date: format(new Date(), 'yyyy-MM-dd'),
+        startTime: '08:00',
+        endTime: '09:00',
+        notes: ''
+      });
       fetchData();
     } catch (error) {
-      console.error("Error creating session:", error);
+      console.error("Error saving session:", error);
     }
+  };
+
+  const handleEditClick = (session: Session) => {
+    setEditingSession(session);
+    setNewSession({
+      studentId: session.studentId,
+      date: session.date || format(parseISO(session.startTime as string), 'yyyy-MM-dd'),
+      startTime: session.startTime as string,
+      endTime: session.endTime as string,
+      notes: session.notes || ''
+    });
+    setIsModalOpen(true);
   };
 
   const getStudentType = (studentName: string) => {
@@ -278,9 +307,9 @@ export const Schedule: React.FC = () => {
                 <div className="absolute top-0 right-0 p-8 opacity-10">
                    <CalendarIcon className="w-24 h-24 rotate-12" />
                 </div>
-                <h3 className="text-2xl font-black uppercase tracking-tighter italic italic">Tambah Jadwal</h3>
-                <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mt-1">Sesi Belajar Baru</p>
-                <button onClick={() => setIsModalOpen(false)} className="absolute top-8 right-8 text-white/50 hover:text-white transition-colors">
+                <h3 className="text-2xl font-black uppercase tracking-tighter italic italic">{editingSession ? 'Edit Jadwal' : 'Tambah Jadwal'}</h3>
+                <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mt-1">{editingSession ? 'Perbarui Sesi Belajar' : 'Sesi Belajar Baru'}</p>
+                <button onClick={() => { setIsModalOpen(false); setEditingSession(null); }} className="absolute top-8 right-8 text-white/50 hover:text-white transition-colors">
                   <X className="w-6 h-6"/>
                 </button>
               </div>
@@ -319,7 +348,18 @@ export const Schedule: React.FC = () => {
                   />
                   </div>
                 </div>
-                <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 rounded-[1.5rem] shadow-xl shadow-indigo-100 transition-all active:scale-95 uppercase text-xs tracking-widest">Simpan Jadwal</button>
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1 italic">Catatan (Opsional)</label>
+                  <textarea 
+                    value={newSession.notes}
+                    onChange={(e) => setNewSession({...newSession, notes: e.target.value})}
+                    placeholder="Masukkan catatan sesi..."
+                    className="w-full bg-gray-50 border-none px-6 py-4 rounded-2xl text-sm font-bold text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600 transition-all shadow-inner min-h-[100px] resize-none"
+                  />
+                </div>
+                <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 rounded-[1.5rem] shadow-xl shadow-indigo-100 transition-all active:scale-95 uppercase text-xs tracking-widest">
+                  {editingSession ? 'Simpan Perubahan' : 'Simpan Jadwal'}
+                </button>
               </form>
             </motion.div>
           </div>
@@ -370,8 +410,21 @@ export const Schedule: React.FC = () => {
                           <div className={cn("px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-sm italic border", colors.bg, colors.text, colors.border)}>
                             {s.startTime as string} - {s.endTime as string}
                           </div>
-                          <div className={cn("px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-tighter", colors.bg, colors.text)}>
-                             {getStudentType(s.studentId)}
+                          <div className="flex items-center gap-2">
+                             <div className={cn("px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-tighter", colors.bg, colors.text)}>
+                                {getStudentType(s.studentId)}
+                             </div>
+                             {profile?.role === 'admin' && (
+                               <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditClick(s);
+                                }}
+                                className="p-2 bg-gray-50 text-gray-400 hover:text-indigo-600 rounded-lg transition-all"
+                               >
+                                  <Edit2 className="w-3 h-3" />
+                               </button>
+                             )}
                           </div>
                         </div>
                         <h4 className="text-2xl font-black text-gray-900 tracking-tighter italic uppercase">{s.studentId}</h4>

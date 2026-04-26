@@ -17,7 +17,8 @@ import {
   ExternalLink,
   Package,
   Trash2,
-  Edit2
+  Edit2,
+  Search
 } from 'lucide-react';
 import { formatCurrency, cn } from '../lib/utils';
 import { AppSettings, Payment, Announcement, Student, Program } from '../types';
@@ -45,6 +46,7 @@ export const Financials: React.FC = () => {
   const [proofUrl, setProofUrl] = useState('');
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [historyFilter, setHistoryFilter] = useState<{status: string, search: string}>({status: 'all', search: ''});
 
   // Billing form state
   const [billingForm, setBillingForm] = useState({
@@ -230,6 +232,12 @@ export const Financials: React.FC = () => {
   const isParent = profile?.role === 'parent';
   const isAdmin = profile?.role === 'admin';
   const pendingPayment = payments.find(p => p.status === 'pending');
+  const filteredPayments = payments.filter(p => {
+    const matchesStatus = historyFilter.status === 'all' || p.status === historyFilter.status;
+    const matchesSearch = p.studentId.toLowerCase().includes(historyFilter.search.toLowerCase());
+    return matchesStatus && matchesSearch;
+  });
+
   const totalRevenue = payments.filter(p => p.status === 'verified').reduce((sum, p) => sum + p.amount, 0);
 
   if (loading) return <div className="p-20 text-center font-black uppercase text-gray-400 animate-pulse tracking-widest text-xs">Memuat Data Keuangan...</div>;
@@ -572,12 +580,34 @@ export const Financials: React.FC = () => {
 
           {/* HISTORY TABLE */}
           <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl overflow-hidden">
-            <div className="px-8 py-6 border-b border-gray-50 flex items-center justify-between">
+            <div className="px-8 py-6 border-b border-gray-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <History className="w-5 h-5 text-gray-400" />
                 <h3 className="text-lg font-black text-gray-900 tracking-tight">{t.history}</h3>
               </div>
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{payments.length} {t.transaction}</span>
+              
+              <div className="flex flex-col sm:flex-row items-center gap-2">
+                <div className="relative w-full sm:w-48">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                  <input 
+                    type="text"
+                    placeholder="Cari siswa..."
+                    value={historyFilter.search}
+                    onChange={(e) => setHistoryFilter({...historyFilter, search: e.target.value})}
+                    className="w-full bg-gray-50 border border-gray-100 pl-9 pr-3 py-2 rounded-xl text-[10px] font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <select 
+                  value={historyFilter.status}
+                  onChange={(e) => setHistoryFilter({...historyFilter, status: e.target.value})}
+                  className="w-full sm:w-auto bg-gray-50 border border-gray-100 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">Semua Status</option>
+                  <option value="pending">Menunggu</option>
+                  <option value="paid">Diproses</option>
+                  <option value="verified">Terverifikasi</option>
+                </select>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
@@ -592,10 +622,10 @@ export const Financials: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {payments.length === 0 ? (
+                  {filteredPayments.length === 0 ? (
                     <tr><td colSpan={isParent ? 4 : 6} className="p-16 text-center text-gray-300 text-xs font-black uppercase tracking-widest">{t.no_transactions}</td></tr>
                   ) : (
-                    payments.map(p => (
+                    filteredPayments.map(p => (
                       <tr key={p.id} className="hover:bg-gray-50/50 transition-colors">
                         <td className="px-8 py-5">
                           <p className="text-sm font-bold text-gray-900">{new Date(p.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
