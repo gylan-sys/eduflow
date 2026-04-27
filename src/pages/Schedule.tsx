@@ -60,6 +60,18 @@ export const Schedule: React.FC = () => {
       setSessions(sData);
       setStudents(stData);
       setTeachers(tData.filter((u: any) => u.role === 'teacher'));
+      
+      // Update selected day sessions if detail is open
+      if (selectedDate) {
+        const daySessions = sData.filter((s: Session) => {
+          if (profile?.role === 'teacher') {
+            if (profile.assignedStudentIds && !profile.assignedStudentIds.includes(s.studentId)) return false;
+          }
+          const sDate = parseISO(s.date || (s.startTime as string));
+          return isSameDay(sDate, selectedDate);
+        });
+        setSelectedDaySessions(daySessions);
+      }
     } catch (err) {
       console.error("Fetch schedule error:", err);
     }
@@ -81,8 +93,7 @@ export const Schedule: React.FC = () => {
   const handleDayClick = (day: Date) => {
     const daySessions = sessions.filter(s => {
       if (profile?.role === 'teacher') {
-        const student = students.find(std => std.name === s.studentId);
-        if (student && !profile.assignedStudentIds?.includes(student.id)) return false;
+        if (profile.assignedStudentIds && !profile.assignedStudentIds.includes(s.studentId)) return false;
       }
       const sDate = parseISO(s.date || (s.startTime as string));
       return isSameDay(sDate, day);
@@ -126,6 +137,23 @@ export const Schedule: React.FC = () => {
     setIsModalOpen(true);
   };
 
+  const handleCancelSession = async (session: Session) => {
+    if (!window.confirm('Apakah Anda yakin ingin membatalkan sesi ini?')) return;
+    
+    try {
+      await fetchApi('/api/sessions', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          ...session, 
+          status: 'cancelled' 
+        })
+      });
+      await fetchData();
+    } catch (error) {
+      console.error("Error cancelling session:", error);
+    }
+  };
+
   const getStudentName = (studentId: string) => {
     const s = students.find(std => std.id === studentId);
     return s?.name || studentId;
@@ -136,7 +164,13 @@ export const Schedule: React.FC = () => {
     return s?.type || 'shadow';
   };
 
-  const getDaySessionColor = (studentId: string) => {
+  const getDaySessionColor = (studentId: string, status?: string) => {
+    if (status === 'cancelled') return {
+      bg: "bg-gray-50/50 grayscale opacity-40",
+      text: "text-gray-400 line-through",
+      dot: "bg-gray-300",
+      border: "border-gray-200"
+    };
     const type = getStudentType(studentId);
     if (type === 'shadow') return {
       bg: "bg-blue-50/80 hover:bg-blue-100",
@@ -240,14 +274,7 @@ export const Schedule: React.FC = () => {
             const daySessions = sessions.filter(s => {
               // Filter by student assignment for teachers
               if (profile?.role === 'teacher') {
-                // We need to find the student id for this session
-                // In Sessions, studentId refers to the student's name right now? 
-                // Let's check the Session type or how it's used.
-                // Line 281: s.studentId is used as name.
-                const student = students.find(std => std.name === s.studentId);
-                if (student) {
-                   if (!profile.assignedStudentIds?.includes(student.id)) return false;
-                }
+                if (profile.assignedStudentIds && !profile.assignedStudentIds.includes(s.studentId)) return false;
               }
               const sDate = parseISO(s.date || (s.startTime as string));
               return isSameDay(sDate, day);
@@ -280,7 +307,7 @@ export const Schedule: React.FC = () => {
                 </div>
                 <div className="space-y-1 sm:space-y-2">
                   {daySessions.slice(0, 3).map((s) => {
-                    const colors = getDaySessionColor(s.studentId);
+                    const colors = getDaySessionColor(s.studentId, s.status);
                     return (
                       <div 
                         key={s.id} 
@@ -415,7 +442,8 @@ export const Schedule: React.FC = () => {
                   </div>
                 ) : (
                   selectedDaySessions.map(s => {
-                    const colors = getDaySessionColor(s.studentId);
+                    const colors = getDaySessionColor(s.studentId, s.status);
+                    const isCancelled = s.status === 'cancelled';
                     return (
                       <div 
                         key={s.id} 
@@ -435,20 +463,38 @@ export const Schedule: React.FC = () => {
                              <div className={cn("px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-tighter", colors.bg, colors.text)}>
                                 {getStudentType(s.studentId)}
                              </div>
-                             {profile?.role === 'admin' && (
-                               <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEditClick(s);
-                                }}
-                                className="p-2 bg-gray-50 text-gray-400 hover:text-indigo-600 rounded-lg transition-all"
-                               >
-                                  <Edit2 className="w-3 h-3" />
-                               </button>
+                             {(profile?.role === 'admin' || profile?.role === 'teacher') && (
+                               <div className="flex items-center gap-2">
+                                 <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditClick(s);
+                                  }}
+                                  className="p-2 bg-gray-50 text-gray-400 hover:text-indigo-600 rounded-lg transition-all"
+                                 >
+                                    <Edit2 className="w-3 h-3" />
+                                 </button>
+                                 {!isCancelled && (
+                                   <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleCancelSession(s);
+                                    }}
+                                    className="p-2 bg-red-50 text-red-400 hover:text-red-600 rounded-lg transition-all flex items-center gap-2"
+                                    title="Batalkan Sesi"
+                                   >
+                                      <Trash2 className="w-3 h-3" />
+                                      <span className="text-[8px] font-black uppercase">Batal</span>
+                                   </button>
+                                 )}
+                               </div>
                              )}
                           </div>
                         </div>
-                        <h4 className="text-2xl font-black text-gray-900 tracking-tighter italic uppercase">{getStudentName(s.studentId)}</h4>
+                        <h4 className={cn("text-2xl font-black text-gray-900 tracking-tighter italic uppercase", isCancelled && "line-through opacity-50")}>{getStudentName(s.studentId)}</h4>
+                        {isCancelled && (
+                          <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mt-1">Sesi Dibatalkan</p>
+                        )}
                         {s.notes && (
                            <div className="mt-6 p-5 bg-gray-50/50 rounded-2xl border border-gray-100 italic font-medium text-xs text-gray-500 leading-relaxed">
                               "{s.notes}"
