@@ -11,6 +11,14 @@ export interface UserProfile {
   phoneNumber?: string;
   assignedStudentIds?: string[]; // Max 2 students
   photoURL?: string;
+  // Biodata tambahan
+  address?: string;
+  gender?: 'L' | 'P';
+  specialization?: string;
+  education?: string;
+  birthDate?: string;
+  birthPlace?: string;
+  joinDate?: string;
 }
 
 export type StudentType = 'shadow' | 'swimming' | 'both';
@@ -26,6 +34,13 @@ export interface Student {
   dateOfBirth?: string;
   notes?: string;
   type: StudentType;
+  photoUrl?: string;
+  address?: string;
+  gender?: 'L' | 'P';
+  hobbies?: string;
+  emergencyContact?: string;
+  religion?: string;
+  placeOfBirth?: string;
 }
 
 export type SessionType = 'shadow' | 'swimming';

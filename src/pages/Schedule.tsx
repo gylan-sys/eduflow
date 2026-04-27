@@ -95,17 +95,10 @@ export const Schedule: React.FC = () => {
   const handleAddSession = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      if (editingSession) {
-        await fetchApi(`/api/sessions/${editingSession.id}`, {
-          method: 'PUT',
-          body: JSON.stringify(newSession)
-        });
-      } else {
-        await fetchApi('/api/sessions', {
-          method: 'POST',
-          body: JSON.stringify(newSession)
-        });
-      }
+      await fetchApi('/api/sessions', {
+        method: 'POST',
+        body: JSON.stringify({ ...newSession, id: editingSession?.id })
+      });
       setIsModalOpen(false);
       setEditingSession(null);
       setNewSession({

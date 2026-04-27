@@ -25,6 +25,7 @@ import { AppSettings, Payment, Announcement, Student, Program } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSettings } from '../contexts/SettingsContext';
 import { translations } from '../constants/translations';
+import { isDateRecent } from '../lib/validation';
 
 export const Financials: React.FC = () => {
   const { profile } = useAuth();
@@ -122,6 +123,12 @@ export const Financials: React.FC = () => {
   const handleBillingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!billingForm.studentId || !billingForm.amount) return;
+
+    // Validation
+    if (!isDateRecent(billingForm.date)) {
+      alert("Tanggal pembayaran harus dalam rentang 1 tahun terakhir hingga 3 bulan ke depan");
+      return;
+    }
 
     try {
       await fetchApi('/api/payments', {

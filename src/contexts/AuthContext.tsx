@@ -11,6 +11,7 @@ interface AuthContextType {
   login: () => Promise<void>;
   loginWithEmail: (email: string, pass: string) => Promise<void>;
   logout: () => void;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -104,6 +105,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProfile(null);
   };
 
+  const refreshProfile = async () => {
+    const token = localStorage.getItem('adiba_token');
+    if (!token) return;
+    try {
+      const res = await fetch('/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const freshUser = await res.json();
+        setUser(freshUser);
+        setProfile(freshUser);
+        localStorage.setItem('adiba_user', JSON.stringify(freshUser));
+      }
+    } catch (err) {
+      console.error("Refresh profile failed:", err);
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user,
@@ -114,7 +133,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       error, 
       login, 
       loginWithEmail, 
-      logout 
+      logout,
+      refreshProfile
     }}>
       {children}
     </AuthContext.Provider>

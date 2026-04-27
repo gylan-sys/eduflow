@@ -185,9 +185,9 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
         <div className="hidden md:flex items-center gap-3">
-          <div className="w-12 h-12 bg-white rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center text-gray-400">
+          <button className="w-12 h-12 bg-white rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-900 hover:shadow-md transition-all active:scale-95">
             <Bell className="w-6 h-6" />
-          </div>
+          </button>
           <div className="bg-gray-900 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-3 shadow-xl shadow-gray-200">
             {format(new Date(), 'EEEE, d MMM yyyy')}
           </div>

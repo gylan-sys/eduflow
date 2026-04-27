@@ -1,5 +1,6 @@
 export const translations = {
   id: {
+    notifications: 'Notifikasi',
     dashboard: 'Dashboard',
     students: 'Siswa',
     schedule: 'Jadwal',
@@ -137,6 +138,7 @@ export const translations = {
     no_schedule: 'Tidak ada jadwal',
   },
   en: {
+    notifications: 'Notifications',
     dashboard: 'Dashboard',
     students: 'Students',
     schedule: 'Schedule',

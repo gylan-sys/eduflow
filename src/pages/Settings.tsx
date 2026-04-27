@@ -16,7 +16,10 @@ import {
   ChevronDown,
   Plus,
   Languages,
-  Info
+  Info,
+  Database,
+  Download,
+  Upload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -25,8 +28,9 @@ export const Settings: React.FC = () => {
   const { profile } = useAuth();
   const { settings: globalSettings, refreshSettings } = useSettings();
   const [settings, setSettings] = useState<AppSettings>(globalSettings);
-  const [activeTab, setActiveTab] = useState<'general' | 'appearance' | 'language'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'appearance' | 'language' | 'backup'>('general');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -106,7 +110,83 @@ export const Settings: React.FC = () => {
     { id: 'general', name: settings.language === 'en' ? 'General' : 'Umum', icon: Layout },
     { id: 'appearance', name: settings.language === 'en' ? 'Appearance' : 'Tampilan', icon: Palette },
     { id: 'language', name: settings.language === 'en' ? 'Language' : 'Bahasa', icon: Languages },
+    { id: 'backup', name: settings.language === 'en' ? 'Backup' : 'Cadangan', icon: Database },
   ];
+
+  const handleBackup = async () => {
+    try {
+      const token = localStorage.getItem('adiba_token');
+      const res = await fetch('/api/backup', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!res.ok) throw new Error("Gagal mengunduh cadangan");
+      
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `backup-scholar-sys-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error("Backup error:", err);
+      alert("Gagal membuat cadangan database.");
+    }
+  };
+
+  const handleRestore = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const confirmRestore = window.confirm(
+      settings.language === 'en' 
+        ? "Warning: Restoring will overwrite all current data. Continue?" 
+        : "Peringatan: Pemulihan akan menimpa semua data saat ini. Lanjutkan?"
+    );
+
+    if (!confirmRestore) {
+      event.target.value = '';
+      return;
+    }
+
+    setIsRestoring(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const backupData = JSON.parse(e.target?.result as string);
+          const token = localStorage.getItem('adiba_token');
+          const res = await fetch('/api/restore', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(backupData)
+          });
+
+          if (!res.ok) throw new Error("Gagal memulihkan database");
+          
+          alert(settings.language === 'en' ? "Database restored successfully! The page will reload." : "Database berhasil dipulihkan! Halaman akan dimuat ulang.");
+          window.location.reload();
+        } catch (err) {
+          console.error("Restore processing error:", err);
+          alert("Gagal memproses file cadangan.");
+        }
+      };
+      reader.readAsText(file);
+    } catch (err) {
+      console.error("Restore error:", err);
+      alert("Gagal memulihkan database.");
+    } finally {
+      setIsRestoring(false);
+      event.target.value = '';
+    }
+  };
 
   if (profile?.role !== 'admin') {
     return (
@@ -457,6 +537,89 @@ export const Settings: React.FC = () => {
                         </p>
                      </div>
                   </div>
+                </div>
+              )}
+              {activeTab === 'backup' && (
+                <div className="space-y-12">
+                   <div className="flex flex-col md:flex-row gap-8">
+                     <div className="flex-1 space-y-6">
+                        <div className="p-8 bg-indigo-50 rounded-[2.5rem] border border-indigo-100 flex items-start gap-4">
+                           <div className="p-3 bg-indigo-100 rounded-2xl text-indigo-600">
+                              <Download className="w-6 h-6" />
+                           </div>
+                           <div>
+                              <h4 className="text-sm font-black text-indigo-950 uppercase tracking-tight italic">
+                                {settings.language === 'en' ? 'Data Backup' : 'Cadangan Data'}
+                              </h4>
+                              <p className="text-xs text-indigo-800/70 font-bold leading-relaxed mt-1 uppercase tracking-wider">
+                                {settings.language === 'en' 
+                                  ? 'Download all application data (users, students, sessions, etc.) in a JSON file for your documentation.' 
+                                  : 'Unduh semua data aplikasi (pengguna, siswa, sesi, dll.) dalam file JSON untuk dokumentasi Anda.'}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={handleBackup}
+                                className="mt-6 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 shadow-xl shadow-indigo-100"
+                              >
+                                <Download className="w-4 h-4" />
+                                {settings.language === 'en' ? 'Download Backup Now' : 'Unduh Cadangan Sekarang'}
+                              </button>
+                           </div>
+                        </div>
+                     </div>
+
+                     <div className="flex-1 space-y-6">
+                        <div className="p-8 bg-amber-50 rounded-[2.5rem] border border-amber-100 flex items-start gap-4 h-full">
+                           <div className="p-3 bg-amber-100 rounded-2xl text-amber-600">
+                              <Upload className="w-6 h-6" />
+                           </div>
+                           <div>
+                              <h4 className="text-sm font-black text-amber-950 uppercase tracking-tight italic">
+                                {settings.language === 'en' ? 'Restore Data' : 'Pulihkan Data'}
+                              </h4>
+                              <p className="text-xs text-amber-800/70 font-bold leading-relaxed mt-1 uppercase tracking-wider">
+                                {settings.language === 'en' 
+                                  ? 'Upload a previously downloaded backup file. Warning: This will REPLACE all current data.' 
+                                  : 'Unggah file cadangan yang diunduh sebelumnya. Peringatan: Ini akan MENGGANTI semua data saat ini.'}
+                              </p>
+                              <div className="mt-6 relative">
+                                <input
+                                  type="file"
+                                  id="restore-upload"
+                                  className="hidden"
+                                  accept=".json"
+                                  onChange={handleRestore}
+                                  disabled={isRestoring}
+                                />
+                                <label
+                                  htmlFor="restore-upload"
+                                  className={cn(
+                                    "inline-flex bg-amber-600 hover:bg-amber-700 text-white px-8 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest items-center gap-2 transition-all active:scale-95 shadow-xl shadow-amber-100 cursor-pointer",
+                                    isRestoring && "opacity-50 pointer-events-none"
+                                  )}
+                                >
+                                  {isRestoring ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                                  {settings.language === 'en' ? 'Upload & Restore' : 'Unggah & Pulihkan'}
+                                </label>
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+                   </div>
+
+                   <div className="p-8 bg-red-50 rounded-[2.5rem] border border-red-100 flex items-center gap-4">
+                      <div className="p-3 bg-red-100 rounded-2xl text-red-600">
+                         <AlertTriangle className="w-6 h-6" />
+                      </div>
+                      <div>
+                         <p className="text-[10px] font-black text-red-950 uppercase tracking-widest italic">Penting!</p>
+                         <p className="text-[10px] font-bold text-red-800/70 leading-relaxed uppercase tracking-wider">
+                           {settings.language === 'en' 
+                             ? 'Make sure you keep the backup file in a safe place. Restoring data cannot be undone.' 
+                             : 'Pastikan Anda menyimpan file cadangan di tempat yang aman. Pemulihan data tidak dapat dibatalkan.'}
+                         </p>
+                      </div>
+                   </div>
                 </div>
               )}
             </motion.div>

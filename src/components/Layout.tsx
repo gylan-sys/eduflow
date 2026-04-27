@@ -30,6 +30,7 @@ export const Layout: React.FC = () => {
   const { settings: appSettings } = useSettings();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
   const lang = appSettings.language || 'id';
   const t = translations[lang];
@@ -67,13 +68,60 @@ export const Layout: React.FC = () => {
           </div>
           <span className="font-black text-gray-900 tracking-tight">{appSettings.appName}</span>
         </div>
-        <button 
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="p-2 bg-gray-50 rounded-xl text-gray-600 transition-all active:scale-90"
-        >
-          {isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+            className="p-2 bg-gray-50 rounded-xl text-gray-600 transition-all active:scale-90 relative"
+          >
+            <Bell className="w-5 h-5" />
+            <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
+          </button>
+          <button 
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="p-2 bg-gray-50 rounded-xl text-gray-600 transition-all active:scale-90"
+          >
+            {isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
       </div>
+
+      {/* Notifications Dropdown (Mobile Overlay) */}
+      <AnimatePresence>
+        {isNotificationsOpen && (
+          <div className="fixed inset-0 z-[100] md:hidden">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsNotificationsOpen(false)}
+              className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="absolute top-20 right-6 left-6 bg-white rounded-[2rem] shadow-2xl p-6 border border-gray-100"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest italic">{t.notifications || 'Notifikasi'}</h4>
+                <button onClick={() => setIsNotificationsOpen(false)} className="text-gray-400 p-2"><X className="w-5 h-5" /></button>
+              </div>
+              <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                  <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1 italic">Sistem</p>
+                  <p className="text-xs font-bold text-gray-700 leading-tight">Selamat datang di aplikasi {appSettings.appName}!</p>
+                  <p className="text-[8px] font-bold text-gray-400 mt-2 uppercase tracking-widest">Baru Saja</p>
+                </div>
+                <div className="py-10 flex flex-col items-center justify-center">
+                   <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest italic text-center">
+                      Belum ada notifikasi lainnya
+                   </p>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Sidebar / Overlay menu */}
       <AnimatePresence mode="wait">
@@ -238,10 +286,46 @@ export const Layout: React.FC = () => {
              </div>
           </div>
 
-          <div className="flex items-center gap-6">
-             <button className="relative p-2.5 bg-gray-50 rounded-2xl text-gray-400 hover:text-gray-900 transition-colors group">
+          <div className="flex items-center gap-6 relative">
+             <button 
+              onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+              className="relative p-2.5 bg-gray-50 rounded-2xl text-gray-400 hover:text-gray-900 transition-all group active:scale-90"
+             >
                 <Bell className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                <div className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
              </button>
+
+             {/* Notifications Dropdown (Desktop) */}
+             <AnimatePresence>
+                {isNotificationsOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsNotificationsOpen(false)} />
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className="absolute top-full right-0 mt-4 w-80 bg-white rounded-[2rem] shadow-2xl border border-gray-100 z-50 p-6"
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest italic">{t.notifications || 'Notifikasi'}</h4>
+                        <span className="bg-red-50 text-red-500 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest">1 Baru</span>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:bg-gray-100 transition-colors cursor-pointer group">
+                           <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-1 italic">Sistem</p>
+                           <p className="text-xs font-bold text-gray-700 leading-tight">Selamat datang di aplikasi {appSettings.appName}!</p>
+                           <p className="text-[8px] font-bold text-gray-400 mt-2 uppercase tracking-widest">Baru Saja</p>
+                        </div>
+                        <div className="py-6 flex flex-col items-center justify-center">
+                           <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest italic text-center leading-relaxed">
+                              Belum ada<br />notifikasi lainnya
+                           </p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+             </AnimatePresence>
              
              <div className="h-6 w-px bg-gray-200" />
              

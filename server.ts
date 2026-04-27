@@ -38,7 +38,16 @@ db.exec(`
     businessLine TEXT,
     studentId TEXT,
     assignedStudentIds TEXT,
-    createdAt TEXT
+    createdAt TEXT,
+    photoUrl TEXT,
+    phone TEXT,
+    address TEXT,
+    gender TEXT,
+    specialization TEXT,
+    education TEXT,
+    birthDate TEXT,
+    birthPlace TEXT,
+    joinDate TEXT
   );
 
   CREATE TABLE IF NOT EXISTS students (
@@ -51,7 +60,16 @@ db.exec(`
     type TEXT,
     status TEXT DEFAULT 'active',
     joinedAt TEXT,
-    updatedAt TEXT
+    updatedAt TEXT,
+    photoUrl TEXT,
+    address TEXT,
+    gender TEXT,
+    hobbies TEXT,
+    emergencyContact TEXT,
+    religion TEXT,
+    placeOfBirth TEXT,
+    dateOfBirth TEXT,
+    notes TEXT
   );
 
   CREATE TABLE IF NOT EXISTS sessions (
@@ -122,6 +140,61 @@ try {
 } catch (e) {}
 try {
   db.exec("ALTER TABLE users ADD COLUMN assignedStudentIds TEXT");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE students ADD COLUMN photoUrl TEXT");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE students ADD COLUMN address TEXT");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE students ADD COLUMN gender TEXT");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE students ADD COLUMN hobbies TEXT");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE students ADD COLUMN emergencyContact TEXT");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE students ADD COLUMN religion TEXT");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE students ADD COLUMN placeOfBirth TEXT");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE students ADD COLUMN dateOfBirth TEXT");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE students ADD COLUMN notes TEXT");
+} catch (e) {}
+
+try {
+  db.exec("ALTER TABLE users ADD COLUMN photoUrl TEXT");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE users ADD COLUMN phone TEXT");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE users ADD COLUMN address TEXT");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE users ADD COLUMN gender TEXT");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE users ADD COLUMN specialization TEXT");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE users ADD COLUMN education TEXT");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE users ADD COLUMN birthDate TEXT");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE users ADD COLUMN birthPlace TEXT");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE users ADD COLUMN joinDate TEXT");
 } catch (e) {}
 
 // Helper to seed settings if empty
@@ -258,7 +331,19 @@ app.post('/api/auth/bootstrap', async (req, res) => {
 });
 
 app.get('/api/auth/me', authenticateToken, (req: any, res) => {
-  res.json(req.user);
+  try {
+    const user = db.prepare('SELECT uid, email, displayName, role, businessLine, studentId, assignedStudentIds, photoUrl, phone, address, gender, specialization, education, birthDate, birthPlace, joinDate FROM users WHERE uid = ?').get(req.user.uid) as any;
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    res.json({
+      ...user,
+      assignedStudentIds: user.assignedStudentIds ? JSON.parse(user.assignedStudentIds) : [],
+      photoURL: user.photoUrl,
+      phoneNumber: user.phone
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Students
@@ -277,7 +362,11 @@ app.get('/api/students', authenticateToken, (req: any, res) => {
 
 app.post('/api/students', authenticateToken, (req: any, res) => {
   if (req.user.role !== 'admin' && req.user.role !== 'teacher') return res.status(403).json({ error: 'Unauthorized' });
-  const { id, name, parentName, phone, email, educationLevel, type } = req.body;
+  const { 
+    id, name, parentName, phone, email, educationLevel, type, 
+    photoUrl, address, gender, hobbies, emergencyContact, religion, 
+    placeOfBirth, dateOfBirth, notes 
+  } = req.body;
   if (!name) return res.status(400).json({ error: 'Name is required' });
   
   const nid = id || 'std_' + Date.now();
@@ -286,11 +375,32 @@ app.post('/api/students', authenticateToken, (req: any, res) => {
   try {
     const existing = db.prepare('SELECT * FROM students WHERE id = ?').get(nid);
     if (existing) {
-      db.prepare('UPDATE students SET name = ?, parentName = ?, phone = ?, email = ?, educationLevel = ?, type = ?, updatedAt = ? WHERE id = ?')
-        .run(name, parentName || '', phone || '', email || '', educationLevel || '', type || 'shadow', now, nid);
+      db.prepare(`
+        UPDATE students SET 
+          name = ?, parentName = ?, phone = ?, email = ?, educationLevel = ?, 
+          type = ?, photoUrl = ?, address = ?, gender = ?, hobbies = ?, 
+          emergencyContact = ?, religion = ?, placeOfBirth = ?, dateOfBirth = ?, 
+          notes = ?, updatedAt = ? 
+        WHERE id = ?
+      `).run(
+        name, parentName || '', phone || '', email || '', educationLevel || '', 
+        type || 'shadow', photoUrl || null, address || null, gender || null, 
+        hobbies || null, emergencyContact || null, religion || null, 
+        placeOfBirth || null, dateOfBirth || null, notes || null, now, nid
+      );
     } else {
-      db.prepare('INSERT INTO students (id, name, parentName, phone, email, educationLevel, type, status, joinedAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(nid, name, parentName || '', phone || '', email || '', educationLevel || '', type || 'shadow', 'active', now, now);
+      db.prepare(`
+        INSERT INTO students (
+          id, name, parentName, phone, email, educationLevel, type, 
+          status, joinedAt, updatedAt, photoUrl, address, gender, 
+          hobbies, emergencyContact, religion, placeOfBirth, dateOfBirth, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        nid, name, parentName || '', phone || '', email || '', educationLevel || '', 
+        type || 'shadow', 'active', now, now, photoUrl || null, address || null, 
+        gender || null, hobbies || null, emergencyContact || null, religion || null, 
+        placeOfBirth || null, dateOfBirth || null, notes || null
+      );
     }
     res.json({ id: nid, name });
   } catch (err: any) {
@@ -418,10 +528,12 @@ app.post('/api/reports', authenticateToken, (req: any, res) => {
 // User Management
 app.get('/api/users', authenticateToken, (req: any, res) => {
   try {
-    const users = db.prepare('SELECT uid, email, displayName, role, businessLine, studentId, assignedStudentIds, createdAt FROM users').all() as any[];
+    const users = db.prepare('SELECT uid, email, displayName, role, businessLine, studentId, assignedStudentIds, createdAt, photoUrl, phone, address, gender, specialization, education, birthDate, birthPlace, joinDate FROM users').all() as any[];
     const parsedUsers = users.map(u => ({
       ...u,
-      assignedStudentIds: u.assignedStudentIds ? JSON.parse(u.assignedStudentIds) : []
+      assignedStudentIds: u.assignedStudentIds ? JSON.parse(u.assignedStudentIds) : [],
+      photoURL: u.photoUrl, // Frontend expects photoURL
+      phoneNumber: u.phone // Frontend expects phoneNumber
     }));
     res.json(parsedUsers);
   } catch (err: any) {
@@ -429,14 +541,58 @@ app.get('/api/users', authenticateToken, (req: any, res) => {
   }
 });
 
+app.put('/api/profile', authenticateToken, async (req: any, res: any) => {
+  const { 
+    displayName, photoUrl, phone, address, gender, 
+    specialization, education, birthDate, birthPlace, password 
+  } = req.body;
+  
+  try {
+    const sets = [
+      'displayName = ?', 'photoUrl = ?', 'phone = ?', 'address = ?', 
+      'gender = ?', 'specialization = ?', 'education = ?', 
+      'birthDate = ?', 'birthPlace = ?'
+    ];
+    const params = [
+      displayName, photoUrl || null, phone || null, address || null, 
+      gender || null, specialization || null, education || null, 
+      birthDate || null, birthPlace || null
+    ];
+
+    if (password) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      sets.push('password = ?');
+      params.push(hashedPassword);
+    }
+
+    params.push(req.user.uid);
+    db.prepare(`UPDATE users SET ${sets.join(', ')} WHERE uid = ?`).run(...params);
+    res.json({ message: 'Profile updated' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/users', authenticateToken, async (req: any, res: any) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
-  const { email, password, displayName, role, businessLine, studentId, assignedStudentIds } = req.body;
+  const { 
+    email, password, displayName, role, businessLine, studentId, assignedStudentIds,
+    photoUrl, phone, address, gender, specialization, education, birthDate, birthPlace, joinDate
+  } = req.body;
   try {
     const hashedPassword = await bcrypt.hash(password || 'default123', 10);
     const uid = 'usr_' + Date.now();
-    db.prepare('INSERT INTO users (uid, email, password, displayName, role, businessLine, studentId, assignedStudentIds, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(uid, email, hashedPassword, displayName, role, businessLine || null, studentId || null, assignedStudentIds ? JSON.stringify(assignedStudentIds) : null, new Date().toISOString());
+    db.prepare(`
+      INSERT INTO users (
+        uid, email, password, displayName, role, businessLine, studentId, assignedStudentIds, 
+        createdAt, photoUrl, phone, address, gender, specialization, education, birthDate, birthPlace, joinDate
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      uid, email, hashedPassword, displayName, role, businessLine || null, studentId || null, 
+      assignedStudentIds ? JSON.stringify(assignedStudentIds) : null, new Date().toISOString(),
+      photoUrl || null, phone || null, address || null, gender || null, 
+      specialization || null, education || null, birthDate || null, birthPlace || null, joinDate || null
+    );
     res.json({ uid });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -445,16 +601,31 @@ app.post('/api/users', authenticateToken, async (req: any, res: any) => {
 
 app.put('/api/users/:uid', authenticateToken, async (req: any, res: any) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
-  const { displayName, role, businessLine, studentId, assignedStudentIds, password } = req.body;
+  const { 
+    displayName, email, role, businessLine, studentId, assignedStudentIds, password,
+    photoUrl, phone, address, gender, specialization, education, birthDate, birthPlace, joinDate
+  } = req.body;
   try {
+    const sets = [
+      'displayName = ?', 'email = ?', 'role = ?', 'businessLine = ?', 'studentId = ?', 'assignedStudentIds = ?',
+      'photoUrl = ?', 'phone = ?', 'address = ?', 'gender = ?', 'specialization = ?', 
+      'education = ?', 'birthDate = ?', 'birthPlace = ?', 'joinDate = ?'
+    ];
+    const params = [
+      displayName, email, role, businessLine || null, studentId || null, 
+      assignedStudentIds ? JSON.stringify(assignedStudentIds) : null,
+      photoUrl || null, phone || null, address || null, gender || null,
+      specialization || null, education || null, birthDate || null, birthPlace || null, joinDate || null
+    ];
+
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10);
-      db.prepare('UPDATE users SET displayName = ?, role = ?, businessLine = ?, studentId = ?, assignedStudentIds = ?, password = ? WHERE uid = ?')
-        .run(displayName, role, businessLine || null, studentId || null, assignedStudentIds ? JSON.stringify(assignedStudentIds) : null, hashedPassword, req.params.uid);
-    } else {
-      db.prepare('UPDATE users SET displayName = ?, role = ?, businessLine = ?, studentId = ?, assignedStudentIds = ? WHERE uid = ?')
-        .run(displayName, role, businessLine || null, studentId || null, assignedStudentIds ? JSON.stringify(assignedStudentIds) : null, req.params.uid);
+      sets.push('password = ?');
+      params.push(hashedPassword);
     }
+
+    params.push(req.params.uid);
+    db.prepare(`UPDATE users SET ${sets.join(', ')} WHERE uid = ?`).run(...params);
     res.json({ message: 'User updated' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -577,6 +748,57 @@ app.delete('/api/programs/:id', authenticateToken, (req: any, res) => {
   try {
     db.prepare('DELETE FROM programs WHERE id = ?').run(req.params.id);
     res.json({ message: 'Deleted' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Utility to get all tables data
+app.get('/api/backup', authenticateToken, async (req: any, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
+  try {
+    const data: any = {};
+    const tables = ['users', 'students', 'sessions', 'reports', 'payments', 'announcements', 'programs', 'settings'];
+    
+    tables.forEach(table => {
+      data[table] = db.prepare(`SELECT * FROM ${table}`).all();
+    });
+    
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/restore', authenticateToken, async (req: any, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
+  const backupData = req.body;
+  
+  try {
+    const tables = ['users', 'students', 'sessions', 'reports', 'payments', 'announcements', 'programs', 'settings'];
+    
+    // Use a transaction for safety
+    const transaction = db.transaction(() => {
+      tables.forEach(table => {
+        if (backupData[table]) {
+          db.prepare(`DELETE FROM ${table}`).run();
+          const rows = backupData[table];
+          if (rows.length > 0) {
+            const columns = Object.keys(rows[0]);
+            const placeholders = columns.map(() => '?').join(',');
+            const stmt = db.prepare(`INSERT INTO ${table} (${columns.join(',')}) VALUES (${placeholders})`);
+            
+            rows.forEach((row: any) => {
+              const values = columns.map(col => row[col]);
+              stmt.run(...values);
+            });
+          }
+        }
+      });
+    });
+    
+    transaction();
+    res.json({ message: 'Database restored successfully' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

@@ -17,6 +17,8 @@ import { useSettings } from '../contexts/SettingsContext';
 import { translations } from '../constants/translations';
 import { format } from 'date-fns';
 
+import { fetchApi } from '../lib/api';
+
 export const Announcements: React.FC = () => {
   const { profile } = useAuth();
   const { settings: appSettings } = useSettings();
@@ -37,11 +39,8 @@ export const Announcements: React.FC = () => {
 
   const fetchAnnouncements = async () => {
     try {
-      const res = await fetch('/api/announcements');
-      if (res.ok) {
-        const data = await res.json();
-        setAnnouncements(data);
-      }
+      const data = await fetchApi('/api/announcements');
+      setAnnouncements(data);
     } catch (err) {
       console.error("Fetch announcements failed:", err);
     } finally {
@@ -59,17 +58,10 @@ export const Announcements: React.FC = () => {
     
     setIsSubmitting(true);
     try {
-      const token = localStorage.getItem('eduflow_token');
-      const res = await fetch('/api/announcements', {
+      await fetchApi('/api/announcements', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify(newAnnouncement)
       });
-
-      if (!res.ok) throw new Error("Gagal membuat pengumuman");
 
       setIsAddModalOpen(false);
       setNewAnnouncement({
@@ -90,14 +82,10 @@ export const Announcements: React.FC = () => {
   const handleDeleteAnnouncement = async (id: string) => {
     if (!window.confirm("Hapus pengumuman ini?")) return;
     try {
-      const token = localStorage.getItem('eduflow_token');
-      const res = await fetch(`/api/announcements/${id}`, {
-        method: 'DELETE',
-        headers: { 
-          'Authorization': `Bearer ${token}`
-        }
+      await fetchApi(`/api/announcements/${id}`, {
+        method: 'DELETE'
       });
-      if (res.ok) fetchAnnouncements();
+      fetchAnnouncements();
     } catch (err) {
       console.error("Error deleting announcement:", err);
     }
