@@ -131,6 +131,30 @@ db.exec(`
     isActive INTEGER DEFAULT 1,
     createdAt TEXT
   );
+
+  CREATE TABLE IF NOT EXISTS student_attendance (
+    id TEXT PRIMARY KEY,
+    studentId TEXT,
+    sessionId TEXT,
+    date TEXT,
+    status TEXT, -- 'present', 'permit', 'absent'
+    notes TEXT,
+    createdAt TEXT,
+    FOREIGN KEY(studentId) REFERENCES students(id),
+    FOREIGN KEY(sessionId) REFERENCES sessions(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS teacher_attendance (
+    id TEXT PRIMARY KEY,
+    teacherId TEXT,
+    date TEXT,
+    checkIn TEXT,
+    checkOut TEXT,
+    status TEXT, -- 'present', 'late', 'permit'
+    notes TEXT,
+    createdAt TEXT,
+    FOREIGN KEY(teacherId) REFERENCES users(uid)
+  );
 `);
 
 // Try to add column if it doesn't exist (handle already existing cases)
@@ -563,6 +587,86 @@ app.post('/api/reports', authenticateToken, (req: any, res) => {
         .run(nid, studentId, req.user.uid, date, type, content);
     }
     res.json({ id: nid });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Attendance
+app.get('/api/attendance/student/:sessionId', authenticateToken, (req: any, res) => {
+  try {
+    const attendance = db.prepare('SELECT * FROM student_attendance WHERE sessionId = ?').all(req.params.sessionId);
+    res.json(attendance);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/attendance/student', authenticateToken, (req: any, res) => {
+  if (req.user.role !== 'admin' && req.user.role !== 'teacher') return res.status(403).json({ error: 'Unauthorized' });
+  const { sessionId, records } = req.body; // records: [{studentId, status, notes}]
+  const now = new Date().toISOString();
+  const date = now.split('T')[0];
+
+  try {
+    const insert = db.prepare('INSERT OR REPLACE INTO student_attendance (id, studentId, sessionId, date, status, notes, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    const txn = db.transaction((recs) => {
+      for (const rec of recs) {
+        const id = `att_std_${sessionId}_${rec.studentId}`;
+        insert.run(id, rec.studentId, sessionId, date, rec.status, rec.notes || '', now);
+      }
+    });
+    txn(records);
+    res.json({ message: 'Attendance recorded' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/attendance/teacher/status', authenticateToken, (req: any, res) => {
+  const date = new Date().toISOString().split('T')[0];
+  try {
+    const status = db.prepare('SELECT * FROM teacher_attendance WHERE teacherId = ? AND date = ?').get(req.user.uid, date);
+    res.json(status || null);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/attendance/teacher/clock-in', authenticateToken, (req: any, res) => {
+  const { notes } = req.body;
+  const now = new Date().toISOString();
+  const date = now.split('T')[0];
+  const checkIn = now.split('T')[1].substring(0, 5);
+  const id = `att_tr_${req.user.uid}_${date}`;
+
+  try {
+    db.prepare('INSERT OR REPLACE INTO teacher_attendance (id, teacherId, date, checkIn, status, notes, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(id, req.user.uid, date, checkIn, 'present', notes || '', now);
+    res.json({ message: 'Clocked in', checkIn });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/attendance/teacher/clock-out', authenticateToken, (req: any, res) => {
+  const now = new Date().toISOString();
+  const date = now.split('T')[0];
+  const checkOut = now.split('T')[1].substring(0, 5);
+
+  try {
+    db.prepare('UPDATE teacher_attendance SET checkOut = ? WHERE teacherId = ? AND date = ?')
+      .run(checkOut, req.user.uid, date);
+    res.json({ message: 'Clocked out', checkOut });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/attendance/teacher/history', authenticateToken, (req: any, res) => {
+  try {
+    const history = db.prepare('SELECT * FROM teacher_attendance WHERE teacherId = ? ORDER BY date DESC LIMIT 30').all(req.user.uid);
+    res.json(history);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
