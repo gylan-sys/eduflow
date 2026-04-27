@@ -126,13 +126,18 @@ export const Schedule: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const getStudentType = (studentName: string) => {
-    const s = students.find(std => std.name === studentName);
+  const getStudentName = (studentId: string) => {
+    const s = students.find(std => std.id === studentId);
+    return s?.name || studentId;
+  };
+
+  const getStudentType = (studentId: string) => {
+    const s = students.find(std => std.id === studentId);
     return s?.type || 'shadow';
   };
 
-  const getDaySessionColor = (studentName: string) => {
-    const type = getStudentType(studentName);
+  const getDaySessionColor = (studentId: string) => {
+    const type = getStudentType(studentId);
     if (type === 'shadow') return {
       bg: "bg-blue-50/80 hover:bg-blue-100",
       text: "text-blue-700",
@@ -286,7 +291,7 @@ export const Schedule: React.FC = () => {
                       >
                         <div className="flex items-center gap-1">
                            <div className={cn("w-1 h-1 rounded-full shrink-0", colors.dot)} />
-                           {s.studentId}
+                           {getStudentName(s.studentId)}
                         </div>
                       </div>
                     );
@@ -338,7 +343,7 @@ export const Schedule: React.FC = () => {
                         }
                         return true;
                       })
-                      .map(s => <option key={s.id} value={s.name}>{s.name}</option>)
+                      .map(s => <option key={s.id} value={s.id}>{s.name}</option>)
                     }
                   </select>
                 </div>
@@ -443,7 +448,7 @@ export const Schedule: React.FC = () => {
                              )}
                           </div>
                         </div>
-                        <h4 className="text-2xl font-black text-gray-900 tracking-tighter italic uppercase">{s.studentId}</h4>
+                        <h4 className="text-2xl font-black text-gray-900 tracking-tighter italic uppercase">{getStudentName(s.studentId)}</h4>
                         {s.notes && (
                            <div className="mt-6 p-5 bg-gray-50/50 rounded-2xl border border-gray-100 italic font-medium text-xs text-gray-500 leading-relaxed">
                               "{s.notes}"

@@ -19,25 +19,27 @@ import { fetchApi } from '../lib/api';
 import { translations } from '../constants/translations';
 
 export const Login: React.FC = () => {
-  const { loginWithEmail, login, user, error } = useAuth();
+  const { loginWithCredentials, login, user, error } = useAuth();
   const { settings: appSettings } = useSettings();
   
   const lang = appSettings.language || 'id';
   const t = translations[lang];
 
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [forgotPasswordMode, setForgotPasswordMode] = useState(false);
+  const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState('');
+  const [forgotPasswordError, setForgotPasswordError] = useState('');
+  const [showBootstrap, setShowBootstrap] = useState(false);
 
   useEffect(() => {
     if (user) {
       navigate('/');
     }
   }, [user, navigate]);
-
-  const [showBootstrap, setShowBootstrap] = useState(false);
 
   useEffect(() => {
     fetchApi('/api/announcements').then(data => {
@@ -80,9 +82,28 @@ export const Login: React.FC = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await loginWithEmail(email, password);
+      await loginWithCredentials(identifier, password);
     } catch (err) {
       // Error handled by context
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setForgotPasswordError('');
+    setForgotPasswordSuccess('');
+    try {
+      const res = await fetchApi('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier })
+      });
+      setForgotPasswordSuccess(res.message);
+    } catch (err: any) {
+      setForgotPasswordError(err.message || 'Gagal mengirim permintaan');
     } finally {
       setIsSubmitting(false);
     }
@@ -221,70 +242,143 @@ export const Login: React.FC = () => {
             <p className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mt-2">{t.management_system}</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <motion.div 
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3"
-              >
-                <div className="bg-red-500 rounded-full p-1 shrink-0">
-                   <X className="w-3 h-3 text-white" />
-                </div>
-                <p className="text-[10px] text-red-600 font-bold leading-tight uppercase tracking-widest">{error}</p>
-              </motion.div>
-            )}
+          {!forgotPasswordMode ? (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3"
+                >
+                  <div className="bg-red-500 rounded-full p-1 shrink-0">
+                     <X className="w-3 h-3 text-white" />
+                  </div>
+                  <p className="text-[10px] text-red-600 font-bold leading-tight uppercase tracking-widest">{error}</p>
+                </motion.div>
+              )}
 
-            <div className="space-y-4">
-              <div className="group">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 ml-1 mb-2 block">{t.email}</label>
+              <div className="space-y-4">
+                <div className="group">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 ml-1 mb-2 block">{t.username_email || 'Username / Email'}</label>
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
+                    <input 
+                      type="text" 
+                      required 
+                      value={identifier}
+                      onChange={(e) => setIdentifier(e.target.value)}
+                      placeholder="username / email" 
+                      className="w-full bg-gray-50 border-2 border-gray-50 group-focus-within:border-blue-600 group-focus-within:bg-white pl-12 pr-4 py-4 rounded-2xl text-sm font-bold placeholder:text-gray-300 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="group">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 ml-1 mb-2 block">{t.password}</label>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
+                    <input 
+                      type="password" 
+                      required 
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••" 
+                      className="w-full bg-gray-50 border-2 border-gray-50 group-focus-within:border-blue-600 group-focus-within:bg-white pl-12 pr-4 py-4 rounded-2xl text-sm font-bold placeholder:text-gray-300 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between px-1">
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <div className="w-5 h-5 rounded-md border-2 border-gray-200 group-hover:border-blue-600 transition-colors" />
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{t.remember_me}</span>
+                </label>
+                <button 
+                  type="button" 
+                  onClick={() => setForgotPasswordMode(true)}
+                  className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline"
+                >
+                  Lupa Password?
+                </button>
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={isSubmitting}
+                className="w-full hover:shadow-2xl hover:shadow-blue-200 text-white font-black text-xs uppercase tracking-widest py-5 px-4 rounded-[2rem] transition-all flex items-center justify-center gap-3 group active:scale-[0.98] mb-4"
+                style={{ backgroundColor: appSettings.themeColor }}
+              >
+                {isSubmitting ? t.signing_in : t.signin}
+                {!isSubmitting && <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleForgotPassword} className="space-y-6 text-center">
+              <div className="mb-6">
+                <h4 className="text-xl font-black text-gray-900 uppercase italic">Lupa Password?</h4>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-2 px-4">
+                   Masukkan username atau email Anda. Admin akan membantu mereset password Anda.
+                </p>
+              </div>
+
+              {forgotPasswordSuccess && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="p-4 bg-green-50 border border-green-100 rounded-2xl"
+                >
+                  <p className="text-[10px] text-green-600 font-black uppercase tracking-widest">{forgotPasswordSuccess}</p>
+                </motion.div>
+              )}
+
+              {forgotPasswordError && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="p-4 bg-red-50 border border-red-100 rounded-2xl"
+                >
+                  <p className="text-[10px] text-red-600 font-black uppercase tracking-widest">{forgotPasswordError}</p>
+                </motion.div>
+              )}
+
+              <div className="group text-left">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 ml-1 mb-2 block">Username / Email</label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
                   <input 
-                    type="email" 
+                    type="text" 
                     required 
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="nama@email.com" 
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    placeholder="username / email" 
                     className="w-full bg-gray-50 border-2 border-gray-50 group-focus-within:border-blue-600 group-focus-within:bg-white pl-12 pr-4 py-4 rounded-2xl text-sm font-bold placeholder:text-gray-300 outline-none transition-all"
                   />
                 </div>
               </div>
 
-              <div className="group">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 ml-1 mb-2 block">{t.password}</label>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
-                  <input 
-                    type="password" 
-                    required 
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••" 
-                    className="w-full bg-gray-50 border-2 border-gray-50 group-focus-within:border-blue-600 group-focus-within:bg-white pl-12 pr-4 py-4 rounded-2xl text-sm font-bold placeholder:text-gray-300 outline-none transition-all"
-                  />
-                </div>
+              <div className="flex flex-col gap-3">
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting || !!forgotPasswordSuccess}
+                  className="w-full text-white font-black text-[10px] uppercase tracking-widest py-5 rounded-[2rem] transition-all bg-gray-900 disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Mengirim...' : 'Kirim Permintaan'}
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    setForgotPasswordMode(false);
+                    setForgotPasswordError('');
+                    setForgotPasswordSuccess('');
+                  }}
+                  className="text-[10px] font-black text-gray-400 hover:text-gray-900 uppercase tracking-widest"
+                >
+                  Kembali ke Login
+                </button>
               </div>
-            </div>
-
-            <div className="flex items-center justify-between px-1">
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <div className="w-5 h-5 rounded-md border-2 border-gray-200 group-hover:border-blue-600 transition-colors" />
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{t.remember_me}</span>
-              </label>
-              <button type="button" className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">{t.need_help}</button>
-            </div>
-
-            <button 
-              type="submit" 
-              disabled={isSubmitting}
-              className="w-full hover:shadow-2xl hover:shadow-blue-200 text-white font-black text-xs uppercase tracking-widest py-5 px-4 rounded-[2rem] transition-all flex items-center justify-center gap-3 group active:scale-[0.98] mb-4"
-              style={{ backgroundColor: appSettings.themeColor }}
-            >
-              {isSubmitting ? t.signing_in : t.signin}
-              {!isSubmitting && <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
-            </button>
-          </form>
+            </form>
+          )}
 
           {/* Social Proof / Trust */}
           <div className="mt-12 pt-12 border-t border-gray-50 text-center">

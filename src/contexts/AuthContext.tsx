@@ -9,7 +9,7 @@ interface AuthContextType {
   setActiveBusinessLine: (line: BusinessLine) => void;
   error: string | null;
   login: () => Promise<void>;
-  loginWithEmail: (email: string, pass: string) => Promise<void>;
+  loginWithCredentials: (identifier: string, pass: string) => Promise<void>;
   logout: () => void;
   refreshProfile: () => Promise<void>;
 }
@@ -59,7 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkAuth();
   }, []);
 
-  const loginWithEmail = async (email: string, pass: string) => {
+  const loginWithCredentials = async (identifier: string, pass: string) => {
     try {
       setError(null);
       setLoading(true);
@@ -67,7 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: pass })
+        body: JSON.stringify({ identifier, password: pass })
       });
 
       const data = await response.json();
@@ -83,7 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (err: any) {
       console.error("Login error:", err);
-      let msg = err.message || "Gagal masuk. Periksa email dan password.";
+      let msg = err.message || "Gagal masuk. Periksa username/email dan password.";
       if (msg.includes('User not found')) msg = "User tidak ditemukan";
       if (msg.includes('Invalid password')) msg = "Password salah";
       setError(msg);
@@ -132,7 +132,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setActiveBusinessLine, 
       error, 
       login, 
-      loginWithEmail, 
+      loginWithCredentials, 
       logout,
       refreshProfile
     }}>

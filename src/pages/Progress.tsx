@@ -12,11 +12,22 @@ export const Progress: React.FC = () => {
   const t = translations[lang];
 
   const [reports, setReports] = useState<any[]>([]);
+  const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchApi('/api/reports').then(setReports).catch(console.error).finally(() => setLoading(false));
+    Promise.all([
+      fetchApi('/api/reports'),
+      fetchApi('/api/students')
+    ]).then(([rData, sData]) => {
+      setReports(rData);
+      setStudents(sData);
+    }).catch(console.error).finally(() => setLoading(false));
   }, []);
+
+  const getStudentName = (id: string) => {
+    return students.find(s => s.id === id)?.name || id;
+  };
 
   return (
     <div className="space-y-8">
@@ -65,7 +76,7 @@ export const Progress: React.FC = () => {
                         <Search className="w-4 h-4" />
                       </div>
                     </div>
-                    <h4 className="text-xl font-black text-gray-900 tracking-tighter uppercase italic">{r.studentId}</h4>
+                    <h4 className="text-xl font-black text-gray-900 tracking-tighter uppercase italic">{getStudentName(r.studentId)}</h4>
                     <p className="text-xs text-gray-500 mt-4 leading-relaxed line-clamp-3 font-medium">{r.content}</p>
                     <div className="mt-6 pt-4 border-t border-gray-50 flex justify-end">
                        <button className="text-[9px] font-black text-gray-400 uppercase tracking-widest hover:text-indigo-600 transition-colors">{t.download_pdf}</button>

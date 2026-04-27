@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { fetchApi } from '../lib/api';
 import { 
   LayoutDashboard, 
   Calendar, 
@@ -31,9 +32,16 @@ export const Layout: React.FC = () => {
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
 
   const lang = appSettings.language || 'id';
   const t = translations[lang];
+
+  useEffect(() => {
+    fetchApi('/api/announcements' )
+      .then(data => setAnnouncements(data.slice(0, 5)))
+      .catch(console.error);
+  }, []);
 
   const navItems = [
     { name: t.dashboard, path: '/', icon: LayoutDashboard, roles: ['admin', 'teacher', 'parent'] },
@@ -107,16 +115,21 @@ export const Layout: React.FC = () => {
                 <button onClick={() => setIsNotificationsOpen(false)} className="text-gray-400 p-2"><X className="w-5 h-5" /></button>
               </div>
               <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
-                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                  <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1 italic">Sistem</p>
-                  <p className="text-xs font-bold text-gray-700 leading-tight">Selamat datang di aplikasi {appSettings.appName}!</p>
-                  <p className="text-[8px] font-bold text-gray-400 mt-2 uppercase tracking-widest">Baru Saja</p>
-                </div>
-                <div className="py-10 flex flex-col items-center justify-center">
-                   <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest italic text-center">
+                {announcements.length > 0 ? (
+                  announcements.map((ann) => (
+                    <div key={ann.id} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:bg-gray-100 transition-colors">
+                      <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-1 italic">{ann.type}</p>
+                      <p className="text-xs font-bold text-gray-700 leading-tight">{ann.title}</p>
+                      <p className="text-[8px] font-bold text-gray-400 mt-2 uppercase tracking-widest italic">{new Date(ann.createdAt).toLocaleDateString()}</p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-10 flex flex-col items-center justify-center">
+                    <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest italic text-center">
                       Belum ada notifikasi lainnya
-                   </p>
-                </div>
+                    </p>
+                  </div>
+                )}
               </div>
             </motion.div>
           </div>
@@ -311,16 +324,24 @@ export const Layout: React.FC = () => {
                         <span className="bg-red-50 text-red-500 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest">1 Baru</span>
                       </div>
                       <div className="space-y-3">
-                        <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:bg-gray-100 transition-colors cursor-pointer group">
-                           <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-1 italic">Sistem</p>
-                           <p className="text-xs font-bold text-gray-700 leading-tight">Selamat datang di aplikasi {appSettings.appName}!</p>
-                           <p className="text-[8px] font-bold text-gray-400 mt-2 uppercase tracking-widest">Baru Saja</p>
-                        </div>
-                        <div className="py-6 flex flex-col items-center justify-center">
-                           <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest italic text-center leading-relaxed">
-                              Belum ada<br />notifikasi lainnya
-                           </p>
-                        </div>
+                        {announcements.length > 0 ? (
+                          announcements.map((ann) => (
+                            <div key={ann.id} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:bg-gray-100 transition-colors cursor-pointer group">
+                              <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-1 italic">{ann.type}</p>
+                              <p className="text-xs font-bold text-gray-700 leading-tight group-hover:text-blue-600 transition-colors">{ann.title}</p>
+                              <div className="flex items-center justify-between mt-2">
+                                <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest italic">{new Date(ann.createdAt).toLocaleDateString()}</p>
+                                <ChevronRight className="w-3 h-3 text-gray-300 group-hover:text-blue-500 transition-all" />
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="py-6 flex flex-col items-center justify-center">
+                            <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest italic text-center leading-relaxed">
+                                Belum ada<br />notifikasi lainnya
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </motion.div>
                   </>

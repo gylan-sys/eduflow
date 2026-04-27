@@ -26,12 +26,14 @@ if (!fs.existsSync(UPLOADS_DIR)) {
 
 // Initialize SQLite Database
 const db = new Database(DB_PATH);
+db.pragma('foreign_keys = ON');
 
 // Create Tables
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     uid TEXT PRIMARY KEY,
     email TEXT UNIQUE NOT NULL,
+    username TEXT UNIQUE,
     password TEXT NOT NULL,
     displayName TEXT,
     role TEXT DEFAULT 'user',
@@ -133,6 +135,12 @@ db.exec(`
 
 // Try to add column if it doesn't exist (handle already existing cases)
 try {
+  db.exec("ALTER TABLE users ADD COLUMN username TEXT");
+} catch (e) {}
+try {
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)");
+} catch (e) {}
+try {
   db.exec("ALTER TABLE payments ADD COLUMN proofUrl TEXT");
 } catch (e) {}
 try {
@@ -220,8 +228,8 @@ const seedDatabase = async () => {
     console.log(`[Database] Bootstrapping master admin: ${masterEmail}`);
     const hashedPassword = await bcrypt.hash('admin123', 10);
     const uid = 'usr_master';
-    db.prepare('INSERT INTO users (uid, email, password, displayName, role, businessLine, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .run(uid, masterEmail, hashedPassword, 'Master Admin', 'admin', 'both', new Date().toISOString());
+    db.prepare('INSERT INTO users (uid, email, username, password, displayName, role, businessLine, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(uid, masterEmail, 'admin', hashedPassword, 'Master Admin', 'admin', 'both', new Date().toISOString());
   }
 };
 seedDatabase();
@@ -274,11 +282,13 @@ app.post('/api/upload', authenticateToken, upload.single('file'), (req: any, res
 
 // Auth
 app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+  const { email, username, identifier: bodyIdentifier, password } = req.body;
+  const identifier = bodyIdentifier || email || username;
+
+  if (!identifier || !password) return res.status(400).json({ error: 'Username/Email and password required' });
 
   try {
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as any;
+    const user = db.prepare('SELECT * FROM users WHERE email = ? OR username = ?').get(identifier, identifier) as any;
     if (!user) return res.status(401).json({ error: 'User not found' });
 
     const validPassword = await bcrypt.compare(password, user.password);
@@ -288,6 +298,7 @@ app.post('/api/auth/login', async (req, res) => {
       { 
         uid: user.uid, 
         email: user.email, 
+        username: user.username,
         role: user.role, 
         businessLine: user.businessLine, 
         studentId: user.studentId,
@@ -300,6 +311,33 @@ app.post('/api/auth/login', async (req, res) => {
     const { password: _, ...userWithoutPassword } = user;
     userWithoutPassword.assignedStudentIds = user.assignedStudentIds ? JSON.parse(user.assignedStudentIds) : [];
     res.json({ token, user: userWithoutPassword });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const { identifier } = req.body;
+  if (!identifier) return res.status(400).json({ error: 'Username/Email required' });
+
+  try {
+    const user = db.prepare('SELECT * FROM users WHERE email = ? OR username = ?').get(identifier, identifier) as any;
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Send notification to admin
+    const annId = 'ann_reset_' + Date.now();
+    db.prepare('INSERT INTO announcements (id, title, content, type, authorId, authorName, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(
+        annId, 
+        'Permintaan Reset Password', 
+        `User ${user.displayName} (${user.email}) meminta reset password.`, 
+        'system', 
+        'system', 
+        'Sistem', 
+        new Date().toISOString()
+      );
+
+    res.json({ message: 'Permintaan reset telah dikirim ke admin' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -332,7 +370,7 @@ app.post('/api/auth/bootstrap', async (req, res) => {
 
 app.get('/api/auth/me', authenticateToken, (req: any, res) => {
   try {
-    const user = db.prepare('SELECT uid, email, displayName, role, businessLine, studentId, assignedStudentIds, photoUrl, phone, address, gender, specialization, education, birthDate, birthPlace, joinDate FROM users WHERE uid = ?').get(req.user.uid) as any;
+    const user = db.prepare('SELECT uid, email, username, displayName, role, businessLine, studentId, assignedStudentIds, photoUrl, phone, address, gender, specialization, education, birthDate, birthPlace, joinDate FROM users WHERE uid = ?').get(req.user.uid) as any;
     if (!user) return res.status(404).json({ error: 'User not found' });
     
     res.json({
@@ -401,6 +439,11 @@ app.post('/api/students', authenticateToken, (req: any, res) => {
         gender || null, hobbies || null, emergencyContact || null, religion || null, 
         placeOfBirth || null, dateOfBirth || null, notes || null
       );
+
+      // Create notification for new student
+      const annId = 'ann_std_' + Date.now();
+      db.prepare('INSERT INTO announcements (id, title, content, type, authorId, authorName, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .run(annId, 'Siswa Baru Berdaftar', `Siswa baru bernama ${name} telah didaftarkan ke sistem.`, 'system', req.user.uid, req.user.displayName || 'Staf', now);
     }
     res.json({ id: nid, name });
   } catch (err: any) {
@@ -528,7 +571,7 @@ app.post('/api/reports', authenticateToken, (req: any, res) => {
 // User Management
 app.get('/api/users', authenticateToken, (req: any, res) => {
   try {
-    const users = db.prepare('SELECT uid, email, displayName, role, businessLine, studentId, assignedStudentIds, createdAt, photoUrl, phone, address, gender, specialization, education, birthDate, birthPlace, joinDate FROM users').all() as any[];
+    const users = db.prepare('SELECT uid, email, username, displayName, role, businessLine, studentId, assignedStudentIds, createdAt, photoUrl, phone, address, gender, specialization, education, birthDate, birthPlace, joinDate FROM users').all() as any[];
     const parsedUsers = users.map(u => ({
       ...u,
       assignedStudentIds: u.assignedStudentIds ? JSON.parse(u.assignedStudentIds) : [],
@@ -576,7 +619,7 @@ app.put('/api/profile', authenticateToken, async (req: any, res: any) => {
 app.post('/api/users', authenticateToken, async (req: any, res: any) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
   const { 
-    email, password, displayName, role, businessLine, studentId, assignedStudentIds,
+    email, username, password, displayName, role, businessLine, studentId, assignedStudentIds,
     photoUrl, phone, address, gender, specialization, education, birthDate, birthPlace, joinDate
   } = req.body;
   try {
@@ -584,15 +627,23 @@ app.post('/api/users', authenticateToken, async (req: any, res: any) => {
     const uid = 'usr_' + Date.now();
     db.prepare(`
       INSERT INTO users (
-        uid, email, password, displayName, role, businessLine, studentId, assignedStudentIds, 
+        uid, email, username, password, displayName, role, businessLine, studentId, assignedStudentIds, 
         createdAt, photoUrl, phone, address, gender, specialization, education, birthDate, birthPlace, joinDate
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      uid, email, hashedPassword, displayName, role, businessLine || null, studentId || null, 
+      uid, email, username || null, hashedPassword, displayName, role, businessLine || null, studentId || null, 
       assignedStudentIds ? JSON.stringify(assignedStudentIds) : null, new Date().toISOString(),
       photoUrl || null, phone || null, address || null, gender || null, 
       specialization || null, education || null, birthDate || null, birthPlace || null, joinDate || null
     );
+
+    // Create notification for assigned teacher
+    if (assignedStudentIds && assignedStudentIds.length > 0 && (role === 'teacher' || role === 'admin')) {
+      const annId = 'ann_assign_' + Date.now();
+      db.prepare('INSERT INTO announcements (id, title, content, type, authorId, authorName, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .run(annId, `Tugas Baru: ${displayName}`, `Anda telah ditugaskan untuk menangani ${assignedStudentIds.length} siswa baru.`, 'system', req.user.uid, req.user.displayName || 'Admin', new Date().toISOString());
+    }
+
     res.json({ uid });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -602,17 +653,17 @@ app.post('/api/users', authenticateToken, async (req: any, res: any) => {
 app.put('/api/users/:uid', authenticateToken, async (req: any, res: any) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
   const { 
-    displayName, email, role, businessLine, studentId, assignedStudentIds, password,
+    displayName, email, username, role, businessLine, studentId, assignedStudentIds, password,
     photoUrl, phone, address, gender, specialization, education, birthDate, birthPlace, joinDate
   } = req.body;
   try {
     const sets = [
-      'displayName = ?', 'email = ?', 'role = ?', 'businessLine = ?', 'studentId = ?', 'assignedStudentIds = ?',
+      'displayName = ?', 'email = ?', 'username = ?', 'role = ?', 'businessLine = ?', 'studentId = ?', 'assignedStudentIds = ?',
       'photoUrl = ?', 'phone = ?', 'address = ?', 'gender = ?', 'specialization = ?', 
       'education = ?', 'birthDate = ?', 'birthPlace = ?', 'joinDate = ?'
     ];
     const params = [
-      displayName, email, role, businessLine || null, studentId || null, 
+      displayName, email, username || null, role, businessLine || null, studentId || null, 
       assignedStudentIds ? JSON.stringify(assignedStudentIds) : null,
       photoUrl || null, phone || null, address || null, gender || null,
       specialization || null, education || null, birthDate || null, birthPlace || null, joinDate || null
@@ -626,6 +677,14 @@ app.put('/api/users/:uid', authenticateToken, async (req: any, res: any) => {
 
     params.push(req.params.uid);
     db.prepare(`UPDATE users SET ${sets.join(', ')} WHERE uid = ?`).run(...params);
+
+    // Create notification for updated assignments
+    if (assignedStudentIds && assignedStudentIds.length > 0 && (role === 'teacher' || role === 'admin')) {
+      const annId = 'ann_update_assign_' + Date.now();
+      db.prepare('INSERT INTO announcements (id, title, content, type, authorId, authorName, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .run(annId, `Update Tugas: ${displayName}`, `Daftar tugas siswa Anda telah diperbarui.`, 'system', req.user.uid, req.user.displayName || 'Admin', new Date().toISOString());
+    }
+
     res.json({ message: 'User updated' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

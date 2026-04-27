@@ -49,6 +49,7 @@ export const Users: React.FC = () => {
 
   const [newUser, setNewUser] = useState({
     email: '',
+    username: '',
     password: '',
     displayName: '',
     role: 'teacher' as UserRole,
@@ -129,6 +130,7 @@ export const Users: React.FC = () => {
       setEditingUser(null);
       setNewUser({
         email: '',
+        username: '',
         password: '',
         displayName: '',
         role: 'teacher',
@@ -186,6 +188,7 @@ export const Users: React.FC = () => {
     setEditingUser(user);
     setNewUser({
       email: user.email,
+      username: (user as any).username || '',
       password: '', // Leave blank unless changing
       displayName: user.displayName || '',
       role: user.role,
@@ -212,7 +215,8 @@ export const Users: React.FC = () => {
 
   const filteredUsers = users.filter(u => {
     const matchesSearch = u.displayName?.toLowerCase().includes(search.toLowerCase()) ||
-                         u.email?.toLowerCase().includes(search.toLowerCase());
+                         u.email?.toLowerCase().includes(search.toLowerCase()) ||
+                         (u as any).username?.toLowerCase().includes(search.toLowerCase());
     const matchesRole = roleFilter === 'all' || u.role === roleFilter;
     return matchesSearch && matchesRole;
   });
@@ -315,7 +319,7 @@ export const Users: React.FC = () => {
                       )}
                       <div>
                         <p className="font-bold text-gray-900 tracking-tight">{user.displayName}</p>
-                        <p className="text-xs text-gray-500">{user.email}</p>
+                        <p className="text-xs text-gray-500">{user.email} { (user as any).username && <span className="text-blue-500 ml-1">(@{(user as any).username})</span> }</p>
                       </div>
                     </div>
                   </td>
@@ -438,6 +442,18 @@ export const Users: React.FC = () => {
                           className="w-full bg-white border border-gray-100 px-4 py-3 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
                         />
                       </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Username</label>
+                        <input 
+                          type="text" 
+                          value={newUser.username || ''}
+                          onChange={(e) => setNewUser({...newUser, username: e.target.value})}
+                          className="w-full bg-white border border-gray-100 px-4 py-3 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+                          placeholder="username"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">
                           {editingUser ? 'Ganti Password (Kosongkan jika tidak ganti)' : t.password}

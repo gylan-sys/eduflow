@@ -639,7 +639,9 @@ export const Financials: React.FC = () => {
                           <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest">{p.type}</p>
                         </td>
                         {!isParent && (
-                          <td className="px-8 py-5 text-sm font-black text-blue-600">{p.studentId}</td>
+                          <td className="px-8 py-5 text-sm font-black text-blue-600">
+                             {students.find(s => s.id === p.studentId)?.name || p.studentId}
+                          </td>
                         )}
                         <td className="px-8 py-5">
                           <p className="text-sm font-black text-gray-900">{formatCurrency(p.amount)}</p>

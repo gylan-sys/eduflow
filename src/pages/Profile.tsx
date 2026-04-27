@@ -147,7 +147,7 @@ export const Profile: React.FC = () => {
 
             <div className="mt-8 space-y-2">
               <h2 className="text-2xl font-black text-white tracking-tighter italic uppercase">{profile?.displayName}</h2>
-              <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">{profile?.role}</p>
+              <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">@{ (profile as any)?.username || 'no-username' } • {profile?.role}</p>
             </div>
 
             <div className="mt-8 w-full space-y-3">
