@@ -16,6 +16,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'rumah-inklusif-super-secret-key-123';
+if (JWT_SECRET === 'rumah-inklusif-super-secret-key-123') {
+  console.warn('[Auth] Using default JWT_SECRET. Please set JWT_SECRET in .env for production.');
+} else {
+  console.log('[Auth] Custom JWT_SECRET loaded.');
+}
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data.db');
 const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(__dirname, 'uploads');
 
@@ -155,6 +160,25 @@ db.exec(`
     createdAt TEXT,
     FOREIGN KEY(teacherId) REFERENCES users(uid)
   );
+
+  CREATE TABLE IF NOT EXISTS session_reports (
+    id TEXT PRIMARY KEY,
+    sessionId TEXT,
+    teacherId TEXT,
+    studentId TEXT,
+    date TEXT,
+    activities TEXT,
+    studentResponse TEXT,
+    challenges TEXT,
+    notes TEXT,
+    focusScore INTEGER,
+    socialScore INTEGER,
+    skillScore INTEGER,
+    createdAt TEXT,
+    FOREIGN KEY(sessionId) REFERENCES sessions(id),
+    FOREIGN KEY(teacherId) REFERENCES users(uid),
+    FOREIGN KEY(studentId) REFERENCES students(id)
+  );
 `);
 
 // Try to add column if it doesn't exist (handle already existing cases)
@@ -181,6 +205,10 @@ try {
 } catch (e) {}
 try {
   db.exec("ALTER TABLE students ADD COLUMN gender TEXT");
+} catch (e) {}
+
+try {
+  db.exec("ALTER TABLE teacher_attendance ADD COLUMN photoUrl TEXT");
 } catch (e) {}
 try {
   db.exec("ALTER TABLE students ADD COLUMN hobbies TEXT");
@@ -227,6 +255,16 @@ try {
 } catch (e) {}
 try {
   db.exec("ALTER TABLE users ADD COLUMN joinDate TEXT");
+} catch (e) {}
+
+try {
+  db.exec("ALTER TABLE session_reports ADD COLUMN focusScore INTEGER");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE session_reports ADD COLUMN socialScore INTEGER");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE session_reports ADD COLUMN skillScore INTEGER");
 } catch (e) {}
 
 // Helper to seed settings if empty
@@ -634,15 +672,15 @@ app.get('/api/attendance/teacher/status', authenticateToken, (req: any, res) => 
 });
 
 app.post('/api/attendance/teacher/clock-in', authenticateToken, (req: any, res) => {
-  const { notes } = req.body;
+  const { notes, photoUrl } = req.body;
   const now = new Date().toISOString();
   const date = now.split('T')[0];
   const checkIn = now.split('T')[1].substring(0, 5);
   const id = `att_tr_${req.user.uid}_${date}`;
 
   try {
-    db.prepare('INSERT OR REPLACE INTO teacher_attendance (id, teacherId, date, checkIn, status, notes, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .run(id, req.user.uid, date, checkIn, 'present', notes || '', now);
+    db.prepare('INSERT OR REPLACE INTO teacher_attendance (id, teacherId, date, checkIn, status, notes, photoUrl, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(id, req.user.uid, date, checkIn, 'present', notes || '', photoUrl || null, now);
     res.json({ message: 'Clocked in', checkIn });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -658,6 +696,122 @@ app.post('/api/attendance/teacher/clock-out', authenticateToken, (req: any, res)
     db.prepare('UPDATE teacher_attendance SET checkOut = ? WHERE teacherId = ? AND date = ?')
       .run(checkOut, req.user.uid, date);
     res.json({ message: 'Clocked out', checkOut });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/session-reports', authenticateToken, (req: any, res) => {
+  try {
+    let reports;
+    if (req.user.role === 'parent' && req.user.studentId) {
+      reports = db.prepare('SELECT * FROM session_reports WHERE studentId = ? ORDER BY date DESC').all(req.user.studentId);
+    } else if (req.user.role === 'teacher') {
+       const assignedIds = req.user.assignedStudentIds || [];
+       if (assignedIds.length > 0) {
+         const placeholders = assignedIds.map(() => '?').join(',');
+         reports = db.prepare(`SELECT * FROM session_reports WHERE studentId IN (${placeholders}) ORDER BY date DESC`).all(...assignedIds);
+       } else {
+         reports = [];
+       }
+    } else {
+      reports = db.prepare('SELECT * FROM session_reports ORDER BY date DESC').all();
+    }
+    res.json(reports);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/session-reports/:sessionId', authenticateToken, (req: any, res) => {
+  try {
+    const report = db.prepare('SELECT * FROM session_reports WHERE sessionId = ?').get(req.params.sessionId);
+    res.json(report || null);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/session-reports', authenticateToken, (req: any, res) => {
+  const { sessionId, studentId, activities, studentResponse, challenges, notes, focusScore, socialScore, skillScore } = req.body;
+  const now = new Date().toISOString();
+  const date = now.split('T')[0];
+  const id = `rep_${sessionId}`;
+
+  try {
+    db.prepare(`
+      INSERT OR REPLACE INTO session_reports 
+      (id, sessionId, teacherId, studentId, date, activities, studentResponse, challenges, notes, focusScore, socialScore, skillScore, createdAt) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, sessionId, req.user.uid, studentId, date, activities, studentResponse, challenges, notes, focusScore || 0, socialScore || 0, skillScore || 0, now);
+    res.json({ message: 'Report saved' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin Analytics
+app.get('/api/admin/stats', authenticateToken, (req: any, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
+
+  try {
+    const totalStudents = db.prepare('SELECT COUNT(*) as count FROM students').get() as any;
+    const activeStudents = db.prepare("SELECT COUNT(*) as count FROM students WHERE status = 'active'").get() as any;
+    
+    // Revenue
+    const revenueStats = db.prepare(`
+      SELECT 
+        SUM(CASE WHEN status = 'verified' THEN amount ELSE 0 END) as verified,
+        SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) as pending
+      FROM payments
+    `).get() as any;
+
+    // Attendance (Last 30 days)
+    const attendanceStats = db.prepare(`
+      SELECT 
+        status, COUNT(*) as count 
+      FROM student_attendance 
+      WHERE date >= date('now', '-30 days')
+      GROUP BY status
+    `).get() as any[];
+
+    // Session Types
+    const sessionDistribution = db.prepare(`
+      SELECT 
+        s.studentId, COUNT(*) as count
+      FROM sessions s
+      GROUP BY s.studentId
+    `).all() as any[];
+
+    // Reports summary
+    const reportSummary = db.prepare(`
+      SELECT COUNT(*) as total,
+             SUM(CASE WHEN date = date('now') THEN 1 ELSE 0 END) as today
+      FROM session_reports
+    `).get() as any;
+
+    // Recent Teacher Attendance
+    const teacherAttendance = db.prepare(`
+      SELECT u.displayName, ta.status, ta.date
+      FROM teacher_attendance ta
+      JOIN users u ON ta.teacherId = u.uid
+      ORDER BY ta.date DESC
+      LIMIT 10
+    `).all();
+
+    res.json({
+      students: {
+        total: totalStudents.count,
+        active: activeStudents.count
+      },
+      revenue: {
+        verified: revenueStats.verified || 0,
+        pending: revenueStats.pending || 0
+      },
+      attendance: attendanceStats,
+      reports: reportSummary,
+      teacherAttendance
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -850,6 +1004,32 @@ app.delete('/api/announcements/:id', authenticateToken, (req: any, res) => {
 });
 
 // Settings
+app.get('/api/holidays', async (req, res) => {
+  const year = req.query.year || new Date().getFullYear();
+  try {
+    // Using nager.at as a more reliable international source for Indonesian holidays (ID)
+    const response = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/ID`);
+    
+    if (response.ok) {
+      const nagerHolidays = await response.json();
+      
+      // Format to match the previous API structure for frontend compatibility
+      const formatted = nagerHolidays.map((h: any) => ({
+        holiday_date: h.date,
+        holiday_name: h.localName || h.name
+      }));
+
+      return res.json(formatted);
+    }
+    
+    console.warn(`[Holidays] nager.at failed for year ${year}, status: ${response.status}`);
+    res.json([]); 
+  } catch (error: any) {
+    console.error(`[Holidays] Fetch error: ${error.message}`);
+    res.json([]);
+  }
+});
+
 app.get('/api/settings', (req, res) => {
   try {
     const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('app_settings') as any;

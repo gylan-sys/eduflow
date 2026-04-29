@@ -12,7 +12,10 @@ import {
   LogIn,
   LogOut,
   History,
-  AlertCircle
+  AlertCircle,
+  Camera,
+  RefreshCw,
+  LineChart
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useSettings } from '../contexts/SettingsContext';
@@ -31,10 +34,22 @@ export const Attendance: React.FC = () => {
   const [sessions, setSessions] = useState<any[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
   const [attendanceRecords, setAttendanceRecords] = useState<Record<string, { status: string, notes: string }>>({});
+  const [sessionReport, setSessionReport] = useState({
+    activities: '',
+    studentResponse: '',
+    challenges: '',
+    notes: '',
+    focusScore: 5,
+    socialScore: 5,
+    skillScore: 5
+  });
   const [teacherStatus, setTeacherStatus] = useState<any>(null);
   const [teacherHistory, setTeacherHistory] = useState<any[]>([]);
+  const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadData();
@@ -49,6 +64,7 @@ export const Attendance: React.FC = () => {
   useEffect(() => {
     if (selectedSessionId) {
       loadSessionAttendance(selectedSessionId);
+      loadSessionReport(selectedSessionId);
     }
   }, [selectedSessionId]);
 
@@ -92,6 +108,35 @@ export const Attendance: React.FC = () => {
     }
   };
 
+  const loadSessionReport = async (sessionId: string) => {
+    try {
+      const report = await fetchApi(`/api/session-reports/${sessionId}`);
+      if (report) {
+        setSessionReport({
+          activities: report.activities,
+          studentResponse: report.studentResponse,
+          challenges: report.challenges,
+          notes: report.notes,
+          focusScore: report.focusScore || 5,
+          socialScore: report.socialScore || 5,
+          skillScore: report.skillScore || 5
+        });
+      } else {
+        setSessionReport({
+          activities: '',
+          studentResponse: '',
+          challenges: '',
+          notes: '',
+          focusScore: 5,
+          socialScore: 5,
+          skillScore: 5
+        });
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const selectedSession = sessions.find(s => s.id === selectedSessionId);
   const enrolledStudents = selectedSession 
     ? students.filter(s => s.id === selectedSession.studentId)
@@ -119,8 +164,8 @@ export const Attendance: React.FC = () => {
     try {
       const records = Object.entries(attendanceRecords).map(([studentId, data]) => ({
         studentId,
-        status: data.status,
-        notes: data.notes
+        status: (data as any).status,
+        notes: (data as any).notes
       }));
 
       await fetchApi('/api/attendance/student', {
@@ -128,7 +173,20 @@ export const Attendance: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId: selectedSessionId || 'daily', records })
       });
-      alert('Presensi berhasil disimpan');
+
+      if (selectedSessionId && selectedSession) {
+        await fetchApi('/api/session-reports', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: selectedSessionId,
+            studentId: selectedSession.studentId,
+            ...sessionReport
+          })
+        });
+      }
+
+      alert('Presensi & Dokumentasi berhasil disimpan');
     } catch (error) {
       console.error(error);
       alert('Gagal menyimpan presensi');
@@ -138,15 +196,32 @@ export const Attendance: React.FC = () => {
   };
 
   const handleTeacherClockIn = async () => {
+    if (!photoPreview) {
+      alert('Silakan ambil foto terlebih dahulu untuk bukti kehadiran');
+      return;
+    }
+
     try {
       const res = await fetchApi('/api/attendance/teacher/clock-in', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes: '' })
+        body: JSON.stringify({ notes: '', photoUrl: photoPreview })
       });
-      setTeacherStatus({ ...teacherStatus, checkIn: res.checkIn, date: format(new Date(), 'yyyy-MM-dd') });
+      setTeacherStatus({ ...teacherStatus, checkIn: res.checkIn, date: format(new Date(), 'yyyy-MM-dd'), photoUrl: photoPreview });
+      setPhotoPreview(null);
     } catch (error) {
       console.error(error);
+    }
+  };
+
+  const handleCapturePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -199,25 +274,39 @@ export const Attendance: React.FC = () => {
             className="space-y-6"
           >
             <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl space-y-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div className="space-y-1">
-                  <h3 className="text-lg font-black text-gray-900 tracking-tight uppercase italic flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-blue-500" /> {t.select_session}
-                  </h3>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t.attendance_by_session}</p>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-black text-gray-900 tracking-tight uppercase italic flex items-center gap-2">
+                      <Calendar className="w-5 h-5 text-blue-500" /> {t.select_session}
+                    </h3>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t.attendance_by_session}</p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="flex flex-col space-y-1">
+                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-4">Pilih Tanggal</label>
+                      <input 
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="bg-gray-50 border-none rounded-2xl px-6 py-4 text-xs font-black uppercase tracking-widest focus:ring-2 focus:ring-blue-500/20 w-full sm:w-48"
+                      />
+                    </div>
+                    <div className="flex flex-col space-y-1">
+                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-4">Pilih Sesi (Shadow Teacher)</label>
+                      <select 
+                        value={selectedSessionId}
+                        onChange={(e) => setSelectedSessionId(e.target.value)}
+                        className="bg-gray-50 border-none rounded-2xl px-6 py-4 text-xs font-black uppercase tracking-widest focus:ring-2 focus:ring-blue-500/20 w-full md:w-64"
+                      >
+                        <option value="">-- Presensi Harian (Umum) --</option>
+                        {sessions.filter(s => s.date === selectedDate || !s.date).map(s => {
+                          const student = students.find(std => std.id === s.studentId);
+                          return <option key={s.id} value={s.id}>{s.startTime} - {student?.name || t.students}</option>
+                        })}
+                      </select>
+                    </div>
+                  </div>
                 </div>
-                <select 
-                  value={selectedSessionId}
-                  onChange={(e) => setSelectedSessionId(e.target.value)}
-                  className="bg-gray-50 border-none rounded-2xl px-6 py-4 text-xs font-black uppercase tracking-widest focus:ring-2 focus:ring-blue-500/20 w-full md:w-64"
-                >
-                  <option value="">-- {t.select_session} --</option>
-                  {sessions.map(s => {
-                    const student = students.find(std => std.id === s.studentId);
-                    return <option key={s.id} value={s.id}>{s.startTime} - {student?.name || t.students}</option>
-                  })}
-                </select>
-              </div>
 
               <div className="overflow-x-auto -mx-8 sm:mx-0">
                 <table className="w-full text-left border-collapse">
@@ -268,6 +357,90 @@ export const Attendance: React.FC = () => {
                 </table>
               </div>
 
+              {selectedSessionId && (
+                <div className="pt-8 border-t border-gray-100 space-y-6">
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-black text-gray-900 tracking-tight uppercase italic flex items-center gap-2">
+                      <ClipboardCheck className="w-5 h-5 text-indigo-500" /> Dokumentasi Sesi (Shadow Teacher)
+                    </h3>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Laporan pendampingan siswa berkebutuhan khusus</p>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Scoring Section */}
+                    <div className="col-span-1 md:col-span-2 bg-gray-50/50 p-6 rounded-3xl border border-gray-100 space-y-6">
+                      <div className="flex items-center gap-2 mb-2">
+                        <LineChart className="w-4 h-4 text-indigo-500" />
+                        <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-widest">Penilaian Metrik Sesi (1-10)</h4>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                        {[
+                          { key: 'focusScore', label: 'Konsentrasi & Fokus', color: 'blue' },
+                          { key: 'socialScore', label: 'Interaksi Sosial', color: 'emerald' },
+                          { key: 'skillScore', label: 'Tahapan Belajar/Skill', color: 'orange' }
+                        ].map(metric => (
+                          <div key={metric.key} className="space-y-3">
+                            <div className="flex justify-between items-center">
+                              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{metric.label}</label>
+                              <span className="text-sm font-black text-gray-900 italic">{(sessionReport as any)[metric.key]}/10</span>
+                            </div>
+                            <input 
+                              type="range"
+                              min="1"
+                              max="10"
+                              value={(sessionReport as any)[metric.key]}
+                              onChange={(e) => setSessionReport(prev => ({ ...prev, [metric.key]: parseInt(e.target.value) }))}
+                              className={`w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600`}
+                            />
+                            <div className="flex justify-between text-[8px] font-bold text-gray-300 uppercase tracking-tighter">
+                              <span>Perlu Bantuan</span>
+                              <span>Mandiri</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Aktivitas Belajar</label>
+                      <textarea 
+                        value={sessionReport.activities}
+                        onChange={(e) => setSessionReport(prev => ({ ...prev, activities: e.target.value }))}
+                        placeholder="Misal: Latihan konsentrasi, mengerjakan matematika..."
+                        className="w-full bg-gray-50 border-none rounded-2xl p-5 text-xs font-medium focus:ring-2 focus:ring-indigo-500/20 h-32 resize-none"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Respon/Progres Siswa</label>
+                      <textarea 
+                        value={sessionReport.studentResponse}
+                        onChange={(e) => setSessionReport(prev => ({ ...prev, studentResponse: e.target.value }))}
+                        placeholder="Misal: Siswa kooperatif, sudah mulai bisa fokus 10 menit..."
+                        className="w-full bg-gray-50 border-none rounded-2xl p-5 text-xs font-medium focus:ring-2 focus:ring-indigo-500/20 h-32 resize-none"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Hambatan/Masalah</label>
+                      <textarea 
+                        value={sessionReport.challenges}
+                        onChange={(e) => setSessionReport(prev => ({ ...prev, challenges: e.target.value }))}
+                        placeholder="Misal: Sempat tantrum saat diminta menulis..."
+                        className="w-full bg-gray-50 border-none rounded-2xl p-5 text-xs font-medium focus:ring-2 focus:ring-indigo-500/20 h-32 resize-none"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Catatan Tambahan</label>
+                      <textarea 
+                        value={sessionReport.notes}
+                        onChange={(e) => setSessionReport(prev => ({ ...prev, notes: e.target.value }))}
+                        placeholder="Info lain untuk orang tua atau sekolah..."
+                        className="w-full bg-gray-50 border-none rounded-2xl p-5 text-xs font-medium focus:ring-2 focus:ring-indigo-500/20 h-32 resize-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="pt-6 border-t border-gray-100 flex justify-end">
                 <button 
                   onClick={handleSaveAttendance}
@@ -299,6 +472,28 @@ export const Attendance: React.FC = () => {
 
                <div className="relative group">
                  <div className="absolute inset-0 bg-blue-500 rounded-full blur-2xl opacity-10 group-hover:opacity-20 transition-opacity" />
+                 
+                 {photoPreview && !teacherStatus?.checkIn && (
+                   <div className="relative w-48 h-48 rounded-full overflow-hidden border-8 border-blue-50 shadow-xl group mb-4">
+                     <img src={photoPreview} alt="Selfie" className="w-full h-full object-cover" />
+                     <button 
+                       onClick={() => setPhotoPreview(null)}
+                       className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                     >
+                       <RefreshCw className="w-8 h-8 text-white animate-spin-slow" />
+                     </button>
+                   </div>
+                 )}
+
+                 {teacherStatus?.photoUrl && (
+                   <div className="relative w-48 h-48 rounded-full overflow-hidden border-8 border-emerald-50 shadow-xl mb-4 group">
+                     <img src={teacherStatus.photoUrl || ''} alt="Bukti Hadir" className="w-full h-full object-cover" />
+                     <div className="absolute inset-0 bg-emerald-500/20 flex items-center justify-center">
+                        <UserCheck className="w-12 h-12 text-white drop-shadow-lg" />
+                     </div>
+                   </div>
+                 )}
+
                  {teacherStatus?.checkIn && !teacherStatus?.checkOut ? (
                    <button 
                     onClick={handleTeacherClockOut}
@@ -312,13 +507,29 @@ export const Attendance: React.FC = () => {
                       <CheckCircle2 className="w-12 h-12 text-emerald-500 mb-2" />
                       <span className="text-[10px] font-black text-gray-900 uppercase tracking-widest">{t.verified}</span>
                    </div>
-                 ) : (
+                 ) : photoPreview ? (
                    <button 
                     onClick={handleTeacherClockIn}
-                    className="relative w-48 h-48 bg-white border-8 border-blue-50 rounded-full flex flex-col items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-xl group"
+                    className="relative w-48 h-48 bg-gray-900 border-8 border-blue-50 rounded-full flex flex-col items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-xl group"
                    >
                      <LogIn className="w-12 h-12 text-blue-500 mb-2 group-hover:scale-110 transition-transform" />
-                     <span className="text-[10px] font-black text-gray-900 uppercase tracking-widest">{t.clock_in}</span>
+                     <span className="text-[10px] font-black text-white uppercase tracking-widest">{t.clock_in}</span>
+                   </button>
+                 ) : (
+                   <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="relative w-48 h-48 bg-white border-8 border-blue-50 rounded-full flex flex-col items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-xl group"
+                   >
+                     <Camera className="w-12 h-12 text-blue-500 mb-2 group-hover:scale-110 transition-transform" />
+                     <span className="text-[10px] font-black text-gray-900 uppercase tracking-widest">Ambil Foto</span>
+                     <input 
+                       type="file" 
+                       accept="image/*" 
+                       capture="user" 
+                       className="hidden" 
+                       ref={fileInputRef} 
+                       onChange={handleCapturePhoto} 
+                     />
                    </button>
                  )}
                </div>

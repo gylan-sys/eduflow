@@ -40,17 +40,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             headers: { 'Authorization': `Bearer ${token}` }
           });
           
-          if (!res.ok) {
-            throw new Error("Session invalid");
+          if (res.status === 401 || res.status === 403 || res.status === 404) {
+            console.warn(`Auth check: Session invalid (status ${res.status}). Logging out.`);
+            logout();
+            setLoading(false);
+            return;
           }
           
-          const freshUser = await res.json();
-          setUser(freshUser);
-          setProfile(freshUser);
-          localStorage.setItem('adiba_user', JSON.stringify(freshUser));
-        } catch (err) {
-          console.error("Auth check failed:", err);
-          logout();
+          if (res.ok) {
+            const freshUser = await res.json();
+            setUser(freshUser);
+            setProfile(freshUser);
+            localStorage.setItem('adiba_user', JSON.stringify(freshUser));
+          } else {
+            // Server error (500), don't log out yet, just use optimistic data
+            console.warn("Auth check: Server returned an error, using cached data");
+          }
+        } catch (err: any) {
+          console.error("Auth check encountered a network/server error:", err);
+          // Don't logout on network error to allow retries on refresh
         }
       }
       setLoading(false);

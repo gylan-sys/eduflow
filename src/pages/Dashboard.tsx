@@ -52,18 +52,27 @@ export const Dashboard: React.FC = () => {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [reports, setReports] = useState<any[]>([]);
+  const [adminStats, setAdminStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     try {
       // Fetch stats & data from local API
-      const [annData, sessionsData, studentsData, reportsData, paymentsData] = await Promise.all([
+      const promises: Promise<any>[] = [
         fetchApi('/api/announcements'),
         fetchApi('/api/sessions'),
         fetchApi('/api/students'),
         fetchApi('/api/reports'),
         fetchApi('/api/payments')
-      ]);
+      ];
+
+      if (profile?.role === 'admin') {
+        promises.push(fetchApi('/api/admin/stats'));
+      }
+
+      const results = await Promise.all(promises);
+      
+      const [annData, sessionsData, studentsData, reportsData, paymentsData, adminData] = results;
       
       if (annData) setAnnouncements(annData.slice(0, 3));
       if (sessionsData) setSessions(sessionsData);
@@ -73,12 +82,13 @@ export const Dashboard: React.FC = () => {
         setPayments(paymentsData);
         setPendingBills(paymentsData.filter((p: any) => p.status === 'pending'));
       }
+      if (adminData) setAdminStats(adminData);
     } catch (err) {
       console.error("Dashboard fetch error:", err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [profile?.role]);
 
   useEffect(() => {
     if (profile) fetchData();
@@ -285,7 +295,6 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {isParent ? (
            <>
@@ -318,6 +327,37 @@ export const Dashboard: React.FC = () => {
               color="indigo" 
             />
            </>
+        ) : profile?.role === 'admin' ? (
+          <>
+            <StatCard 
+              title={t.active_students} 
+              value={`${adminStats?.students?.active || 0}/${adminStats?.students?.total || 0}`}
+              change="Aktif/Total" 
+              icon={Users} 
+              color="blue" 
+            />
+            <StatCard 
+              title={t.monthly_revenue} 
+              value={formatCurrency(adminStats?.revenue?.verified || 0)} 
+              change={`${formatCurrency(adminStats?.revenue?.pending || 0)} tertunda`}
+              icon={TrendingUp} 
+              color="emerald" 
+            />
+            <StatCard 
+              title="Laporan Dokumentasi" 
+              value={adminStats?.reports?.total?.toString() || "0"} 
+              change={`+${adminStats?.reports?.today || 0} hari ini`}
+              icon={BookOpen} 
+              color="indigo" 
+            />
+            <StatCard 
+              title="Kehadiran Guru" 
+              value={adminStats?.teacherAttendance?.filter((ta: any) => ta.date === new Date().toISOString().split('T')[0]).length.toString()} 
+              change="Hari Ini" 
+              icon={ShieldCheck} 
+              color="orange" 
+            />
+          </>
         ) : (
           <>
             <StatCard 
@@ -327,15 +367,6 @@ export const Dashboard: React.FC = () => {
               icon={Users} 
               color="blue" 
             />
-            {profile?.role !== 'teacher' && (
-              <StatCard 
-                title={t.monthly_revenue} 
-                value={formatCurrency(stats.revenue)} 
-                change="+0" 
-                icon={TrendingUp} 
-                color="emerald" 
-              />
-            )}
             <StatCard 
               title={t.attendance_rate} 
               value={stats.attendance + "%"} 
@@ -353,6 +384,78 @@ export const Dashboard: React.FC = () => {
           </>
         )}
       </div>
+
+      {/* Admin Specific Detailed Summaries */}
+      {profile?.role === 'admin' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6">
+            <div className="flex items-center justify-between">
+               <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight italic">Ringkasan Kehadiran (30 Hari Terakhir)</h3>
+               <Link to="/attendance" className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline">Detail Absensi</Link>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-4">
+               {['present', 'permit', 'absent'].map(status => {
+                 const count = adminStats?.attendance?.find((a: any) => a.status === status)?.count || 0;
+                 const total = adminStats?.attendance?.reduce((acc: number, curr: any) => acc + curr.count, 0) || 1;
+                 const percentage = Math.round((count / total) * 100);
+                 
+                 return (
+                   <div key={status} className="p-4 rounded-2xl bg-gray-50 space-y-2 border border-gray-100">
+                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                       {status === 'present' ? 'Hadir' : status === 'permit' ? 'Izin' : 'Alfa'}
+                     </p>
+                     <div className="flex items-end gap-2">
+                       <p className="text-2xl font-black text-gray-900 italic">{count}</p>
+                       <p className="text-[10px] font-bold text-emerald-500 mb-1">{percentage}%</p>
+                     </div>
+                     <div className="w-full bg-gray-200 h-1 rounded-full overflow-hidden">
+                       <div 
+                        className={cn(
+                          "h-full rounded-full",
+                          status === 'present' ? 'bg-emerald-500' : status === 'permit' ? 'bg-orange-400' : 'bg-red-500'
+                        )}
+                        style={{ width: `${percentage}%` }}
+                       ></div>
+                     </div>
+                   </div>
+                 );
+               })}
+            </div>
+          </div>
+
+          <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6">
+            <div className="flex items-center justify-between">
+               <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight italic">Aktivitas Guru Terbaru</h3>
+               <Link to="/users" className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline">Manajemen Guru</Link>
+            </div>
+            
+            <div className="space-y-3">
+               {adminStats?.teacherAttendance?.length === 0 ? (
+                 <p className="text-center py-6 text-gray-400 text-[10px] font-black uppercase tracking-widest">Belum ada aktivitas</p>
+               ) : adminStats?.teacherAttendance?.map((ta: any, idx: number) => (
+                 <div key={idx} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-black text-[10px]">
+                        {ta.displayName.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-900">{ta.displayName}</p>
+                        <p className="text-[9px] font-bold text-gray-400">{ta.date}</p>
+                      </div>
+                    </div>
+                    <span className={cn(
+                      "text-[9px] font-black uppercase px-2 py-1 rounded-lg",
+                      ta.status === 'present' ? "bg-emerald-50 text-emerald-600" : "bg-orange-50 text-orange-600"
+                    )}>
+                      {ta.status === 'present' ? 'MASUK' : 'IZIN'}
+                    </span>
+                 </div>
+               ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Charts / Content Area */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

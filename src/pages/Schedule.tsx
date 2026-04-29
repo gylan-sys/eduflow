@@ -49,6 +49,16 @@ export const Schedule: React.FC = () => {
     notes: ''
   });
   const [editingSession, setEditingSession] = useState<Session | null>(null);
+  const [holidays, setHolidays] = useState<any[]>([]);
+
+  const fetchHolidays = async (year: string) => {
+    try {
+      const data = await fetchApi(`/api/holidays?year=${year}`);
+      setHolidays(data);
+    } catch (error) {
+      console.error("Failed to fetch holidays:", error);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -79,7 +89,8 @@ export const Schedule: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+    fetchHolidays(format(currentDate, 'yyyy'));
+  }, [currentDate]);
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(monthStart);
@@ -200,31 +211,38 @@ export const Schedule: React.FC = () => {
           <div className="flex items-center gap-3 mt-3">
              <div className="flex -space-x-2">
                 {[1, 2, 3].map(i => (
-                  <div key={i} className="w-6 h-6 rounded-full border-2 border-white bg-indigo-100" />
+                  <div key={i} className="w-6 h-6 rounded-full border-2 border-white bg-indigo-100 shadow-sm" />
                 ))}
              </div>
              <p className="text-gray-500 font-bold text-[10px] sm:text-xs uppercase tracking-[0.2em] italic flex items-center gap-2">
-              Kalender Aktivitas Ananda
+              <span className="w-1 h-1 bg-indigo-500 rounded-full animate-ping" /> Kalender Aktivitas Ananda
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="hidden lg:flex items-center gap-4 mr-4 px-6 py-3 bg-white/50 backdrop-blur-sm rounded-2xl border border-white/20">
+          <div className="hidden lg:flex items-center gap-6 mr-4 px-8 py-4 bg-white/80 backdrop-blur-md rounded-3xl border border-white/50 shadow-xl shadow-indigo-50/50">
+             <div className="flex flex-col">
+                <span className="text-[14px] font-black italic text-gray-900">{sessions.filter(s => isSameMonth(parseISO(s.date || (s.startTime as string)), currentDate)).length}</span>
+                <span className="text-[7px] font-black uppercase tracking-[0.2em] text-gray-400">Total Sesi</span>
+             </div>
+             <div className="w-px h-8 bg-gray-100" />
              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-blue-500" />
-                <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Shadow</span>
+                <div className="w-2 h-2 rounded-full bg-blue-500 shadow-lg shadow-blue-200" />
+                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">Shadow</span>
              </div>
              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Swimming</span>
+                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-lg shadow-emerald-200" />
+                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">Program</span>
              </div>
           </div>
           {(profile?.role === 'admin' || profile?.role === 'teacher') && (
             <button 
               onClick={() => setIsModalOpen(true)}
-              className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-gray-900 hover:bg-black text-white px-8 py-5 rounded-[1.5rem] transition-all shadow-2xl shadow-gray-200 text-[10px] font-black uppercase tracking-[0.2em] hover:scale-105 active:scale-95 group"
+              className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-gray-900 hover:bg-indigo-600 text-white px-8 py-5 rounded-[1.8rem] transition-all shadow-2xl shadow-gray-200 text-[10px] font-black uppercase tracking-[0.2em] hover:scale-105 active:scale-95 group"
             >
-              <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform" />
+              <div className="w-6 h-6 bg-white/20 rounded-lg flex items-center justify-center group-hover:rotate-90 transition-transform">
+                <Plus className="w-4 h-4" />
+              </div>
               <span>Tambah Sesi</span>
             </button>
           )}
@@ -282,49 +300,69 @@ export const Schedule: React.FC = () => {
             
             const isToday = isSameDay(day, new Date());
             const curMonth = isSameMonth(day, monthStart);
+            const holiday = holidays.find(h => isSameDay(parseISO(h.holiday_date), day));
 
             return (
               <motion.div 
                 key={idx}
-                whileHover={{ scale: 0.98 }}
+                whileHover={{ scale: 1.02, zIndex: 2 }}
                 onClick={() => handleDayClick(day)}
                 className={cn(
-                  "border-r border-b border-gray-50 p-2 sm:p-3 min-h-[85px] sm:min-h-[120px] cursor-pointer hover:bg-white transition-all relative group overflow-hidden",
-                  !curMonth && "bg-gray-50/10 grayscale opacity-20",
-                  daySessions.length > 0 && curMonth && "bg-white/40 shadow-inner"
+                  "border-r border-b border-gray-50 p-2 sm:p-4 min-h-[100px] sm:min-h-[140px] cursor-pointer hover:bg-white transition-all relative group overflow-hidden",
+                  !curMonth && "bg-gray-50/5 grayscale opacity-20",
+                  curMonth && "bg-white/40 shadow-inner",
+                  isToday && "bg-indigo-50/20",
+                  holiday && curMonth && "bg-red-50/10"
                 )}
               >
-                <div className="flex justify-between items-start mb-3">
+                <div className="flex justify-between items-start mb-4">
                    <div className="relative">
-                      {isToday && <motion.div layoutId="today" className="absolute inset-0 bg-indigo-600 rounded-lg blur-md opacity-20" />}
+                      {isToday && <motion.div layoutId="today" className="absolute -inset-1 bg-indigo-600 rounded-xl blur-lg opacity-30" />}
                       <span className={cn(
-                        "text-[11px] sm:text-xs font-black w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-xl transition-all relative z-10",
-                        isToday ? "bg-indigo-600 text-white shadow-xl shadow-indigo-200" : "text-gray-400 group-hover:text-gray-900"
+                        "text-[12px] sm:text-sm font-black w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-2xl transition-all relative z-10",
+                        isToday ? "bg-indigo-600 text-white shadow-xl shadow-indigo-200" : 
+                        holiday && curMonth ? "text-red-500 bg-red-50 font-black" :
+                        "text-gray-400 group-hover:text-gray-900 group-hover:bg-gray-100"
                       )}>
                         {format(day, 'd')}
                       </span>
                    </div>
+                   {holiday && curMonth && (
+                     <div className="flex flex-col items-end max-w-[60%]">
+                        <span className="text-[10px] text-red-500/20"><CalendarIcon className="w-3 h-3" /></span>
+                     </div>
+                   )}
+                   {daySessions.length > 0 && curMonth && (
+                     <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+                   )}
                 </div>
-                <div className="space-y-1 sm:space-y-2">
-                  {daySessions.slice(0, 3).map((s) => {
+                <div className="space-y-1.5">
+                  {holiday && curMonth && (
+                    <div className="text-[8px] sm:text-[9px] font-black text-red-500/80 uppercase leading-tight italic line-clamp-2 bg-red-50/50 p-1 px-2 rounded-lg border border-red-100/50 mb-1">
+                       {holiday.holiday_name}
+                    </div>
+                  )}
+                  {daySessions.slice(0, 1).map((s) => {
                     const colors = getDaySessionColor(s.studentId, s.status);
                     return (
                       <div 
                         key={s.id} 
                         className={cn(
-                          "text-[7px] sm:text-[10px] px-2 py-1.5 rounded-lg truncate font-black uppercase tracking-tighter italic border transition-colors shadow-sm",
+                          "text-[7px] sm:text-[10px] px-2.5 py-2 rounded-xl truncate font-extrabold uppercase tracking-tighter italic border transition-all shadow-sm group-hover:shadow-md",
                           colors.bg, colors.text, colors.border
                         )}
                       >
-                        <div className="flex items-center gap-1">
-                           <div className={cn("w-1 h-1 rounded-full shrink-0", colors.dot)} />
+                        <div className="flex items-center gap-1.5">
+                           <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", colors.dot)} />
                            {getStudentName(s.studentId)}
                         </div>
                       </div>
                     );
                   })}
-                  {daySessions.length > 3 && (
-                    <div className="text-[8px] text-gray-400 font-black px-2 uppercase tracking-widest">+ {daySessions.length - 3} Lagi</div>
+                  {daySessions.length > 1 && (
+                    <div className="text-[8px] text-gray-300 font-black px-2 uppercase tracking-widest flex items-center gap-1">
+                      <Plus className="w-2 h-2" /> {daySessions.length - 1} Sesi
+                    </div>
                   )}
                 </div>
               </motion.div>
